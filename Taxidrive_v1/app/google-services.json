@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "850910053165",
+    "project_id": "taxidrivekz",
+    "storage_bucket": "taxidrivekz.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:850910053165:android:5b19b36e9db684400d09a4",
+        "android_client_info": {
+          "package_name": "kz.taxidrive.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAeWGJ2Iz6x3uvZdJzaDdoBW886koOTfTE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
