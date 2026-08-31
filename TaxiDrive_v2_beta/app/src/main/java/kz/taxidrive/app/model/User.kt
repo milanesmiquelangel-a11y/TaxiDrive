@@ -24,5 +24,7 @@ data class User(
 
     val matricula: String = "",
 
-    val licencia: String = ""
+    val licencia: String = "",
+
+    val fcmToken: String = ""
 )

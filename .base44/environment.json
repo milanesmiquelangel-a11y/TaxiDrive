@@ -1,0 +1,7 @@
+{
+  "previewPort": null,
+  "healthPath": null,
+  "startCommand": "docker compose -f docker-compose.base44.yml run --rm apk-builder",
+  "secrets": [],
+  "notes": "Native Android app (Kotlin + Compose + Firebase). No web preview. The command builds the debug APK. Output: TaxiDrive_v2_beta/app/build/outputs/apk/debug/app-debug.apk"
+}

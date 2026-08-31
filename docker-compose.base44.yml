@@ -1,0 +1,19 @@
+services:
+  apk-builder:
+    build:
+      context: ./TaxiDrive_v2_beta
+      dockerfile: Dockerfile.build
+    volumes:
+      - ./TaxiDrive_v2_beta:/app
+      - apk-gradle-cache:/root/.gradle
+    working_dir: /app
+    command: >
+      bash -c "
+      chmod +x gradlew &&
+      ./gradlew assembleDebug --no-daemon --stacktrace
+      "
+    environment:
+      - GRADLE_OPTS=-Xmx2048m -Dorg.gradle.daemon=false
+
+volumes:
+  apk-gradle-cache:
