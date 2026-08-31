@@ -18,7 +18,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.messaging.FirebaseMessaging
 import kz.taxidrive.app.notification.NotificationHelper
 import kz.taxidrive.app.screens.AdminScreen
@@ -38,6 +40,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private var listenerSolicitudes: ListenerRegistration? = null
+    private val solicitudesVistas = mutableSetOf<String>()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -46,6 +51,7 @@ class MainActivity : ComponentActivity() {
         NotificationHelper.crearCanal(this)
         solicitarPermisoNotificaciones()
         obtenerTokenFCM()
+        escucharSolicitudesParaConductor()
 
         setContent {
             TaxiDriveTheme {
@@ -71,6 +77,61 @@ class MainActivity : ComponentActivity() {
                     .collection("usuarios")
                     .document(uid)
                     .update("fcmToken", token)
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        listenerSolicitudes?.remove()
+        listenerSolicitudes = null
+    }
+
+    // Escucha nuevas solicitudes de pasajeros en tiempo real y notifica al conductor
+    // solo cuando la ruta (origen y destino) coincide con una oferta publicada.
+    private fun escucharSolicitudesParaConductor() {
+        val db = FirebaseFirestore.getInstance()
+        listenerSolicitudes = db.collection("solicitudes")
+            .addSnapshotListener { snapshots, error ->
+                if (error != null || snapshots == null) return@addSnapshotListener
+
+                // Primera carga: registrar solicitudes existentes sin notificar
+                if (solicitudesVistas.isEmpty() && snapshots.documents.isNotEmpty()) {
+                    for (doc in snapshots.documents) {
+                        solicitudesVistas.add(doc.id)
+                    }
+                    return@addSnapshotListener
+                }
+
+                for (cambio in snapshots.documentChanges) {
+                    if (cambio.type == DocumentChange.Type.ADDED &&
+                        solicitudesVistas.add(cambio.document.id)
+                    ) {
+                        val origen = cambio.document.getString("origin") ?: ""
+                        val destino = cambio.document.getString("destination") ?: ""
+                        verificarRutaYNotificar(origen, destino)
+                    }
+                }
+            }
+    }
+
+    private fun verificarRutaYNotificar(origen: String, destino: String) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("ofertas").get().addOnSuccessListener { result ->
+            val coincide = result.documents.any { oferta ->
+                val o = (oferta.getString("origin") ?: "").trim()
+                val d = (oferta.getString("destination") ?: "").trim()
+                o.equals(origen.trim(), ignoreCase = true) &&
+                    d.equals(destino.trim(), ignoreCase = true)
+            }
+            if (coincide) {
+                NotificationHelper.mostrarNotificacion(
+                    context = this,
+                    id = System.currentTimeMillis().toInt(),
+                    titulo = "Nueva solicitud de viaje",
+                    mensaje = if (origen.isNotEmpty() && destino.isNotEmpty())
+                        "$origen → $destino" else "Un pasajero publicó una solicitud en tu ruta"
+                )
             }
         }
     }
