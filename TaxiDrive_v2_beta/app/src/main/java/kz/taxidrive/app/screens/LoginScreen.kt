@@ -1,124 +1,39 @@
 package kz.taxidrive.app.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-
     abrirRegistro: () -> Unit,
-
-    loginCorrecto: () -> Unit
-
+    loginCorrecto: (String) -> Unit
 ) {
-
     var telefono by remember { mutableStateOf("") }
 
-    Scaffold(
-
-        topBar = {
-
-            TopAppBar(
-
-                title = {
-
-                    Text("Iniciar sesión")
-
-                }
-
-            )
-
-        }
-
-    ) { padding ->
-
+    Scaffold(topBar = { TopAppBar(title = { Text("Iniciar sesión") }) }) { padding ->
         Column(
-
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(20.dp),
-
-            horizontalAlignment = Alignment.CenterHorizontally,
-
+            modifier = Modifier.fillMaxSize().padding(padding).padding(20.dp),
             verticalArrangement = Arrangement.Center
-
         ) {
-
             OutlinedTextField(
-
                 value = telefono,
-
-                onValueChange = {
-
-                    telefono = it
-
-                },
-
-                label = {
-
-                    Text("Teléfono")
-
-                },
-
+                onValueChange = { telefono = it },
+                label = { Text("Teléfono") },
                 modifier = Modifier.fillMaxWidth()
-
             )
-
             Spacer(modifier = Modifier.height(20.dp))
-
             Button(
-
-                onClick = {
-
-                    loginCorrecto()
-
-                },
-
+                onClick = { if (telefono.isNotBlank()) loginCorrecto(telefono.trim()) },
                 modifier = Modifier.fillMaxWidth()
-
-            ) {
-
-                Text("Entrar")
-
-            }
-
+            ) { Text("Entrar") }
             Spacer(modifier = Modifier.height(12.dp))
-
-            Button(
-
-                onClick = {
-
-                    abrirRegistro()
-
-                },
-
-                modifier = Modifier.fillMaxWidth()
-
-            ) {
-
+            Button(onClick = abrirRegistro, modifier = Modifier.fillMaxWidth()) {
                 Text("Crear cuenta")
-
             }
-
         }
-
     }
-
 }
