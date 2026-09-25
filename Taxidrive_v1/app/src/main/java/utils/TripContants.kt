@@ -9,4 +9,7 @@ object TripConstants {
     const val MATCHED = "MATCHED"
     const val CANCELLED = "CANCELLED"
     const val FINISHED = "FINISHED"
+
+    const val ACTIVATION_FEE_TENGE = 500
+    const val ACTIVATION_DURATION_HOURS = 24
 }
