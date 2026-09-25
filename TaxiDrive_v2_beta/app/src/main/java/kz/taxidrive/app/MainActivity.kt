@@ -81,9 +81,8 @@ fun TaxiDriveApp() {
         )
 
         "conductor" -> DriverScreen(
-            volver = {
-                pantalla = "inicio"
-            }
+            volver = { pantalla = "inicio" },
+            driverUid = telefonoActual
         )
 
         "admin" -> AdminScreen(
