@@ -13,297 +13,72 @@ import kz.taxidrive.app.repository.UserRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RegisterScreen(
-    volverLogin: () -> Unit
-) {
-
+fun RegisterScreen(volverLogin: () -> Unit) {
     var tipo by remember { mutableStateOf("pasajero") }
-
     var nombre by remember { mutableStateOf("") }
     var apellidos by remember { mutableStateOf("") }
     var telefono by remember { mutableStateOf("") }
-
     var marca by remember { mutableStateOf("") }
     var modelo by remember { mutableStateOf("") }
     var color by remember { mutableStateOf("") }
     var anio by remember { mutableStateOf("") }
     var matricula by remember { mutableStateOf("") }
     var licencia by remember { mutableStateOf("") }
-
     var mensaje by remember { mutableStateOf("") }
 
-    Scaffold(
-
-        topBar = {
-
-            TopAppBar(
-
-                title = {
-
-                    Text("Crear cuenta")
-
-                }
-
-            )
-
-        }
-
-    ) { padding ->
-
+    Scaffold(topBar = { TopAppBar(title = { Text("Crear cuenta") }) }) { padding ->
         Column(
-
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(20.dp)
-                .verticalScroll(rememberScrollState()),
-
+            modifier = Modifier.fillMaxSize().padding(padding).padding(20.dp).verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
-
         ) {
-
             Text("Tipo de usuario")
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-
-                RadioButton(
-                    selected = tipo == "pasajero",
-                    onClick = {
-                        tipo = "pasajero"
-                    }
-                )
-
-                Text("Pasajero")
-
-                Spacer(modifier = Modifier.width(20.dp))
-
-                RadioButton(
-                    selected = tipo == "conductor",
-                    onClick = {
-                        tipo = "conductor"
-                    }
-                )
-
-                Text("Conductor")
-
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(tipo == "pasajero", { tipo = "pasajero" }); Text("Pasajero")
+                Spacer(Modifier.width(20.dp))
+                RadioButton(tipo == "conductor", { tipo = "conductor" }); Text("Conductor")
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            OutlinedTextField(
-                value = nombre,
-                onValueChange = {
-                    nombre = it
-                },
-                label = {
-                    Text("Nombre")
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = apellidos,
-                onValueChange = {
-                    apellidos = it
-                },
-                label = {
-                    Text("Apellidos")
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = telefono,
-                onValueChange = {
-                    telefono = it
-                },
-                label = {
-                    Text("Teléfono")
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
+            Spacer(Modifier.height(20.dp))
+            fun field(value: String, label: String, set: (String) -> Unit) {
+                OutlinedTextField(value, set, label = { Text(label) }, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(12.dp))
+            }
+            field(nombre, "Nombre") { nombre = it }
+            field(apellidos, "Apellidos") { apellidos = it }
+            field(telefono, "Teléfono") { telefono = it }
             if (tipo == "conductor") {
-
-                Spacer(modifier = Modifier.height(20.dp))
-
                 Text("Datos del vehículo")
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = marca,
-                    onValueChange = {
-                        marca = it
-                    },
-                    label = {
-                        Text("Marca")
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = modelo,
-                    onValueChange = {
-                        modelo = it
-                    },
-                    label = {
-                        Text("Modelo")
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = color,
-                    onValueChange = {
-                        color = it
-                    },
-                    label = {
-                        Text("Color")
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = anio,
-                    onValueChange = {
-                        anio = it
-                    },
-                    label = {
-                        Text("Año")
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = matricula,
-                    onValueChange = {
-                        matricula = it
-                    },
-                    label = {
-                        Text("Matrícula")
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = licencia,
-                    onValueChange = {
-                        licencia = it
-                    },
-                    label = {
-                        Text("Licencia")
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Spacer(Modifier.height(12.dp))
+                field(marca, "Marca") { marca = it }
+                field(modelo, "Modelo") { modelo = it }
+                field(color, "Color") { color = it }
+                field(anio, "Año") { anio = it }
+                field(matricula, "Matrícula") { matricula = it }
+                field(licencia, "Licencia") { licencia = it }
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
-            if (mensaje.isNotEmpty()) {
-
-                Text(
-                    text = mensaje,
-                    color = MaterialTheme.colorScheme.error
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
+            if (mensaje.isNotEmpty()) Text(mensaje, color = MaterialTheme.colorScheme.error)
+            Spacer(Modifier.height(12.dp))
             Button(
                 onClick = {
-
-                    if (nombre.isBlank() ||
-                        apellidos.isBlank() ||
-                        telefono.isBlank()
-                    ) {
-
-                        mensaje = "Complete todos los campos obligatorios"
-                        return@Button
+                    if (nombre.isBlank() || apellidos.isBlank() || telefono.isBlank()) {
+                        mensaje = "Complete todos los campos obligatorios"; return@Button
                     }
-
-                    val usuario = User(
-
-                        uid = telefono,
-
-                        nombre = nombre,
-
-                        apellidos = apellidos,
-
-                        telefono = telefono,
-
-                        tipo = tipo,
-
+                    val user = User(
+                        uid = telefono.trim(), nombre = nombre, apellidos = apellidos,
+                        telefono = telefono.trim(), tipo = tipo,
                         aprobado = tipo == "pasajero",
-
-                        marca = marca,
-
-                        modelo = modelo,
-
-                        color = color,
-
-                        anio = anio,
-
-                        matricula = matricula,
-
-                        licencia = licencia
-
+                        marca = marca, modelo = modelo, color = color, anio = anio,
+                        matricula = matricula, licencia = licencia,
+                        trialUntil = 0L, activationUntil = 0L,
+                        activationPending = false, activationAmount = 500L
                     )
-
-                    UserRepository.registerUser(
-                        user = usuario,
-                        onSuccess = {
-
-                            mensaje = "Cuenta creada correctamente"
-
-                            volverLogin()
-
-                        },
-                        onFailure = {
-
-                            mensaje = it.message ?: "Error al registrar el usuario"
-
-                        }
-                    )
-
+                    UserRepository.registerUser(user, {
+                        mensaje = "Cuenta creada correctamente"; volverLogin()
+                    }, { mensaje = it.message ?: "Error al registrar el usuario" })
                 },
                 modifier = Modifier.fillMaxWidth()
-            ) {
-
-                Text("Crear cuenta")
-
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedButton(
-                onClick = volverLogin,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-
-                Text("Volver al inicio de sesión")
-
-            }
-
+            ) { Text("Crear cuenta") }
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(volverLogin, modifier = Modifier.fillMaxWidth()) { Text("Volver al inicio de sesión") }
         }
-
     }
-
 }
