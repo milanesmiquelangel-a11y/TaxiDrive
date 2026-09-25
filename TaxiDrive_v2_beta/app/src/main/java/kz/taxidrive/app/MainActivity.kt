@@ -37,9 +37,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun TaxiDriveApp() {
 
-    var pantalla by remember {
-        mutableStateOf("login")
-    }
+    var pantalla by remember { mutableStateOf("login") }
+    var telefonoActual by remember { mutableStateOf("") }
 
     when (pantalla) {
 
@@ -47,7 +46,8 @@ fun TaxiDriveApp() {
             abrirRegistro = {
                 pantalla = "registro"
             },
-            loginCorrecto = {
+            loginCorrecto = { telefono ->
+                telefonoActual = telefono
                 pantalla = "inicio"
             }
         )
