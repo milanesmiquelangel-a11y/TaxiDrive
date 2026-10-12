@@ -30,6 +30,8 @@ La inspección de `TaxiDrive_v2_beta` encontró los siguientes riesgos en el có
 - El modelo `TripPost` agrupa precio, comentario, teléfono y userId en el mismo documento. No debe permitirse a conductores leer documentos que contengan datos privados si no cumplen la condición de oferta asociada; Firestore no permite ocultar campos individuales dentro de un documento ya legible.
 Estos son hallazgos del árbol consultado, no una afirmación de que el APK verificado tenga exactamente el mismo código. No se han probado las reglas de producción ni se ha compilado este árbol.
 
+- `LoginScreen.kt` no invoca el método de autenticación de Firebase: acepta un teléfono escrito y llama a `loginCorrecto`. `MainActivity.kt` permite navegar a las pantallas de pasajero, conductor y administrador sin validar sesión ni rol. `RegisterScreen.kt` usa el teléfono como UID de Firestore y registra al usuario sin crear una sesión autenticada. En el código consultado, esto no demuestra identidad del titular del número y deja las pantallas confiando en navegación del cliente. Debe considerarse un bloqueo crítico de autenticación/autorización. No publicar ni usar esta rama con datos reales hasta corregirlo y probar reglas/backend.
+
 ### A-06. Titularidad prevista: ИП de Irina Vladimirovna Beloglazova
 El propietario indica que TaxiDrive.kz se organizará mediante un ИП a nombre de su esposa, Irina Vladimirovna Beloglazova, ciudadana kazaja, todavía pendiente de registro. Es una estructura prevista, no una inscripción ya confirmada.
 - El ИП, sus obligaciones fiscales, cuentas de cobro y contratos deben estar realmente a nombre de Irina, con su conocimiento y control; no basta con poner su nombre en la web.
