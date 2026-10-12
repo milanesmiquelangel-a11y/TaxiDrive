@@ -71,3 +71,31 @@ En el ZIP:
 - No se consultó Firebase Console; el contenido del ZIP no demuestra que esas reglas sean las que están desplegadas.
 - No se desplegaron Firestore Rules, Storage Rules ni Cloud Functions.
 - No se subieron el APK ni el ZIP al repositorio.
+
+
+## Actualización de revisión de reglas y repositorios (12/10/2026)
+
+### Hallazgo confirmado en las reglas locales del ZIP
+La inspección del bloque `match /solicitudes/{id}` confirma que un usuario autenticado puede leer una solicitud si es administrador, el pasajero dueño o si tiene un documento `conductores/{uid}` con `estadoAprobacion == 'APROBADO'`. No se exige que el conductor haya creado una oferta para esa solicitud.
+
+El modelo `SolicitudViaje.kt` incluye `pasajeroTelefono` en el mismo documento de `solicitudes`. Por tanto, si estas reglas están desplegadas y la app guarda el teléfono en ese campo, un conductor aprobado puede leer el documento completo y potencialmente acceder al teléfono antes de ofertar. Es un conflicto directo con el requisito de privacidad del producto.
+
+La corrección no debe limitarse a eliminar una línea de la regla: el conductor necesita ver solicitudes públicas para decidir si oferta. La solución recomendada es migrar a dos documentos/recursos:
+1. Solicitud pública con origen, destino, fecha, hora, notas permitidas, estado y campos no sensibles.
+2. Documento privado de contacto con el UID/teléfono del pasajero, legible solo por el pasajero dueño, administrador autorizado y conductor que tenga una oferta válida vinculada a esa solicitud, según la política acordada.
+3. Actualizar la app para dejar de copiar/esperar `pasajeroTelefono` dentro de la solicitud pública y leer el documento privado únicamente cuando la relación lo permita.
+4. Añadir pruebas automatizadas de reglas para conductor aprobado sin oferta (denegado), conductor con oferta vinculada (permitido según política), conductor de otra solicitud (denegado), pasajero dueño (permitido) y usuario no autenticado (denegado).
+
+No se ha editado ni desplegado esta corrección. La migración requiere una versión de app compatible y un plan para documentos existentes; no es seguro cambiar solo las reglas porque la app actual depende del modelo que incluye el teléfono.
+
+### Otras comprobaciones
+- `ofertas/{id}/mensajes/{msgId}` tiene reglas que limitan el chat a los participantes de la oferta y al administrador autorizado; el conductor de una oferta marcada `RECHAZADA` pierde acceso de escritura/lectura según la condición descrita, mientras el pasajero conserva acceso a sus propias conversaciones.
+- Las reglas locales de `pagos/{id}` impiden que el propio conductor marque su pago como confirmado; las actualizaciones están limitadas a un administrador autorizado. La documentación y `PagoRepository.kt` confirman que Kaspi Pay no está integrado y que el método de confirmación manual es solo de pruebas.
+- Las reglas locales de Storage permiten que cualquier usuario autenticado lea archivos bajo `perfil_fotos/`; el nombre del archivo restringe quién escribe, pero no quién lee. Revisar si las fotos de perfil deben ser públicas para todos los usuarios autenticados o si también deben limitarse. Los documentos de conductor bajo `conductores_documentos/UID.jpg` sí se limitan al propio UID para lectura.
+- `jarsigner` no es una herramienta suficiente para verificar el esquema moderno de firma de APK. El certificado de firma de `app-release.apk` queda pendiente de una herramienta Android `apksigner` y no se declara verificado.
+- Los archivos locales del ZIP no prueban qué reglas están activas en Firebase Console.
+
+### Estado actualizado
+- SHA-256 del APK recibido: `a7044f09d5434ac9436897e038c62faa577b70a5b772780c06b2d2af8f367273`.
+- Se ha añadido este análisis al inventario de auditoría.
+- No se ejecutó Gradle, no se instaló la APK, no se comparó el DEX con una compilación reproducible y no se desplegó ningún recurso Firebase.
