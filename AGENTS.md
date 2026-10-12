@@ -53,6 +53,18 @@ Added to `TaxiDrive_v2_beta`:
 There is no backend server, so push messages are sent from the Firebase Console
 (or Cloud Functions) to a device token. The client receives and displays them.
 
+## Web preview (Base44)
+TaxiDrive has NO web frontend, so the Base44 preview used to stay on "Cargando tu
+app…" forever. `docker-compose.base44.yml` now includes a `web-preview` service
+(nginx:alpine, port 3000) serving `web-preview/index.html` — an info page with a
+download link for the compiled debug APK:
+- Page: `http://localhost:3000/`
+- APK: `http://localhost:3000/apk/app-debug.apk` (bind-mounted read-only from
+  `TaxiDrive_v2_beta/app/build/outputs/apk/debug`; build the APK at least once
+  or the folder is empty and the link 404s).
+Custom nginx config: `web-preview/nginx.conf` (mounted to
+`/etc/nginx/conf.d/default.conf`; APK served via `location /apk/` alias).
+
 ## Secrets
 None required at boot. Firebase config is in the committed `google-services.json`.
 No external API keys / managed services.

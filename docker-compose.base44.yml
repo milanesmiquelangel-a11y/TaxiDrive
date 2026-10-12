@@ -1,4 +1,23 @@
 services:
+  web-preview:
+    # TaxiDrive es una app Android nativa sin frontend web; este servicio sirve
+    # una página informativa y la APK para que la vista previa de Base44 (puerto
+    # 3000) no quede en carga infinita y permita instalar la app en un teléfono.
+    image: nginx:alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - ./web-preview:/usr/share/nginx/html:ro
+      - ./web-preview/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./TaxiDrive_v2_beta/app/build/outputs/apk/debug:/apk:ro
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   apk-builder:
     build:
       context: ./TaxiDrive_v2_beta

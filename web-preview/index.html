@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaxiDrive.kz — App Android</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      max-width: 420px;
+      width: 100%;
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid #334155;
+      border-radius: 20px;
+      padding: 40px 32px;
+      text-align: center;
+    }
+    .icon { font-size: 56px; }
+    h1 { font-size: 28px; margin: 16px 0 8px; color: #f8fafc; }
+    .badge {
+      display: inline-block;
+      background: #facc15;
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 20px;
+    }
+    p { font-size: 15px; line-height: 1.6; color: #94a3b8; margin-bottom: 12px; }
+    .btn {
+      display: inline-block;
+      margin-top: 20px;
+      background: #facc15;
+      color: #0f172a;
+      font-weight: 700;
+      font-size: 16px;
+      padding: 14px 32px;
+      border-radius: 12px;
+      text-decoration: none;
+    }
+    .hint { font-size: 12px; color: #64748b; margin-top: 16px; }
+    ul { text-align: left; margin: 16px auto 0; max-width: 300px; color: #94a3b8; font-size: 14px; line-height: 1.8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🚖</div>
+    <h1>TaxiDrive.kz</h1>
+    <div class="badge">App Android nativa</div>
+    <p>
+      TaxiDrive es una aplicación Android nativa (Kotlin + Jetpack Compose + Firebase).
+      No tiene versión web: se instala en el teléfono como APK.
+    </p>
+    <ul>
+      <li>📲 Notificaciones push de nuevas solicitudes y ofertas</li>
+      <li>🛣️ Aviso solo cuando la ruta (origen → destino) coincide</li>
+      <li>👤 Registro e inicio de sesión con Firebase Auth</li>
+    </ul>
+    <a class="btn" href="apk/app-debug.apk" download>⬇️ Descargar APK (debug)</a>
+    <p class="hint">
+      Al instalarla, Android pedirá permitir "instalar apps de fuentes desconocidas".
+      Es normal en la versión debug.
+    </p>
+  </div>
+</body>
+</html>
