@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.google.firebase.auth.FirebaseAuth
 import kz.taxidrive.app.model.TripPost
 import kz.taxidrive.app.repository.OfferRepository
 import kz.taxidrive.app.repository.UserRepository
@@ -14,11 +15,16 @@ import kz.taxidrive.app.repository.UserRepository
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DriverScreen(volver: () -> Unit, driverUid: String = "") {
+    // The supplied UID may come from the old phone-only screen; never trust it as identity.
+    val authenticatedUid = FirebaseAuth.getInstance().currentUser?.uid
     var user by remember { mutableStateOf<kz.taxidrive.app.model.User?>(null) }
     var mensaje by remember { mutableStateOf("") }
 
-    LaunchedEffect(driverUid) {
-        if (driverUid.isNotBlank()) UserRepository.getUser(driverUid) { user = it }
+    LaunchedEffect(authenticatedUid) {
+        user = null
+        if (!authenticatedUid.isNullOrBlank()) {
+            UserRepository.getUser(authenticatedUid) { user = it }
+        }
     }
 
     val now = System.currentTimeMillis()
@@ -29,8 +35,9 @@ fun DriverScreen(volver: () -> Unit, driverUid: String = "") {
             Button(volver, modifier = Modifier.fillMaxWidth()) { Text("← Volver") }
             Spacer(Modifier.height(20.dp))
             when {
-                driverUid.isBlank() -> Text("Inicie sesión con el teléfono del conductor.")
-                user == null -> Text("No se encontró el perfil del conductor.")
+                authenticatedUid.isNullOrBlank() -> Text("Acceso bloqueado: inicia sesión con una identidad autenticada.")
+                user == null -> Text("No se encontró un perfil asociado a la cuenta autenticada.")
+                user!!.tipo != "conductor" -> Text("Acceso denegado: esta cuenta no tiene el rol de conductor.")
                 !user!!.aprobado -> Text("Tu perfil de conductor está pendiente de aprobación.")
                 acceso -> {
                     var origen by remember { mutableStateOf("") }
@@ -57,13 +64,20 @@ fun DriverScreen(volver: () -> Unit, driverUid: String = "") {
                         if (origen.isBlank() || destino.isBlank() || fecha.isBlank() || hora.isBlank() || precio.isBlank()) {
                             mensaje = "Complete todos los campos obligatorios"
                         } else {
-                            OfferRepository.add(TripPost(
-                                type = "conductor", origin = origen, destination = destino, date = fecha, time = hora,
-                                price = precio, comment = comentario, phone = user!!.telefono, userId = user!!.uid, status = "activo"
-                            ), {
-                                mensaje = "Oferta publicada correctamente"
-                                origen = ""; destino = ""; fecha = ""; hora = ""; precio = ""; comentario = ""
-                            }, { mensaje = it.message ?: "No se pudo publicar la oferta" })
+                            val currentUser = user
+                            if (currentUser == null || currentUser.uid != authenticatedUid || currentUser.tipo != "conductor") {
+                                mensaje = "No se pudo verificar la identidad del conductor."
+                            } else {
+                                OfferRepository.add(TripPost(
+                                    type = "conductor", origin = origen.trim(), destination = destino.trim(),
+                                    date = fecha.trim(), time = hora.trim(), price = precio.trim(),
+                                    comment = comentario.trim(), phone = currentUser.telefono,
+                                    userId = authenticatedUid, status = "activo"
+                                ), {
+                                    mensaje = "Oferta publicada correctamente"
+                                    origen = ""; destino = ""; fecha = ""; hora = ""; precio = ""; comentario = ""
+                                }, { mensaje = it.message ?: "No se pudo publicar la oferta" })
+                            }
                         }
                     }, modifier = Modifier.fillMaxWidth()) { Text("Publicar oferta") }
                 }
@@ -78,10 +92,15 @@ fun DriverScreen(volver: () -> Unit, driverUid: String = "") {
                     Text("Activación: 500 ₸ • Duración: 24 horas")
                     Spacer(Modifier.height(16.dp))
                     Button(onClick = {
-                        UserRepository.requestActivation(user!!.uid, {
-                            mensaje = "Solicitud de activación enviada al administrador."
-                            UserRepository.getUser(user!!.uid) { user = it }
-                        }, { mensaje = it.message ?: "No se pudo solicitar la activación" })
+                        val currentUser = user
+                        if (currentUser == null || currentUser.uid != authenticatedUid || currentUser.tipo != "conductor") {
+                            mensaje = "No se pudo verificar la identidad del conductor."
+                        } else {
+                            UserRepository.requestActivation(authenticatedUid, {
+                                mensaje = "Solicitud de activación enviada al administrador."
+                                UserRepository.getUser(authenticatedUid) { user = it }
+                            }, { mensaje = it.message ?: "No se pudo solicitar la activación" })
+                        }
                     }, modifier = Modifier.fillMaxWidth()) { Text("Solicitar activación — 500 ₸") }
                     if (mensaje.isNotEmpty()) { Spacer(Modifier.height(12.dp)); Text(mensaje) }
                 }
