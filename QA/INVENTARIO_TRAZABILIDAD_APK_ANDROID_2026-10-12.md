@@ -35,3 +35,39 @@ No corregir todavía el flujo de autenticación en este árbol, porque la APK pr
 - APK binario y certificado: no disponibles en el árbol inspeccionado.
 - Compilación local/CI: no ejecutada.
 - Consulta o despliegue de Firebase: no realizado.
+
+
+## Actualización tras recibir archivos del propietario (12/10/2026)
+
+Se recibieron dos archivos en esta conversación y se inspeccionaron localmente. El APK no se ha subido a GitHub para evitar publicar un binario de lanzamiento sin necesidad.
+
+### APK recibido
+- Archivo: `app-release.apk`.
+- Tamaño aproximado: 16 MiB.
+- SHA-256: `a7044f09d5434ac9436897e038c62faa577b70a5b772780c06b2d2af8f367273`.
+- El paquete contiene DEX y recursos Android; su metadato de compilación declara Android Gradle Plugin 8.7.0.
+- No se ha verificado todavía el certificado/fingerprint de firma ni se ha extraído de forma fiable el applicationId/versionName del manifiesto binario en esta sesión. No se afirma que este APK proceda del ZIP recibido.
+
+### Fuente ZIP recibido
+El archivo `TaxiDrive_LOCALIZACION_CORREGIDA.zip` sí contiene un proyecto Android más completo que el árbol del repositorio inspeccionado anteriormente:
+- `app/`, `functions/`, `firestore.rules`, `storage.rules`, `firebase.json` y `firebaserc`.
+- `firebase.json` enlaza las reglas locales y las Cloud Functions.
+- `.firebaserc` apunta al proyecto Firebase `taxidrivekz`.
+- El módulo Android declara `applicationId = kz.taxidrive.app`, `versionCode = 1`, `versionName = 1.0.0`, `targetSdk = 35`.
+- `README_LANZAMIENTO.md` dice que Kaspi Pay no está integrado todavía y que el flujo de 500 ₸ queda preparado para integrarlo después. Las Cloud Functions inspeccionadas gestionan notificaciones; el paquete no muestra una integración real de cobro Kaspi.
+- El ZIP no contiene `local.properties` ni una clave privada de firma, según el inventario inspeccionado.
+
+### Hallazgo de seguridad P0: teléfono del pasajero antes de ofertar
+En el ZIP:
+- El modelo `SolicitudViaje.kt` incluye `pasajeroTelefono` en el documento de solicitud.
+- La regla `firestore.rules`, bloque `solicitudes/{id}`, permite leer una solicitud a cualquier usuario autenticado que tenga un documento de conductor con `estadoAprobacion == 'APROBADO'`; no exige que ese conductor haya ofertado en esa solicitud.
+- Como las reglas de Firestore autorizan la lectura del documento completo y no ocultan campos individuales, un conductor aprobado puede potencialmente leer `pasajeroTelefono` antes de enviar una oferta. Esto contradice el requisito del producto.
+- El propio comentario de las reglas dice que el teléfono se copia a la solicitud/oferta, pero la autorización de lectura de la solicitud sigue siendo más amplia que el requisito de privacidad.
+- Recomendación: antes de producción, separar los datos públicos de la solicitud de los datos privados de contacto y permitir el acceso al contacto únicamente a los participantes autorizados después de una oferta válida; añadir pruebas de reglas que demuestren la denegación a un conductor aprobado sin oferta. No se modificaron reglas ni se desplegó nada.
+
+### Limitaciones de esta revisión
+- No se ejecutó Gradle, no se instaló el APK ni se realizó prueba de interfaz en dispositivo.
+- No se verificó el fingerprint de firma del APK ni se comparó su DEX con el código del ZIP.
+- No se consultó Firebase Console; el contenido del ZIP no demuestra que esas reglas sean las que están desplegadas.
+- No se desplegaron Firestore Rules, Storage Rules ni Cloud Functions.
+- No se subieron el APK ni el ZIP al repositorio.
