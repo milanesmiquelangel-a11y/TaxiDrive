@@ -24,9 +24,10 @@ Application id / namespace: `kz.taxidrive.app`. Firebase project: `taxidrivekz`
 `TaxiDrive_v2_beta/Dockerfile.build` (eclipse-temurin:21-jdk + Android cmdline-tools,
 platforms;android-36, build-tools;36.0.0). Source is bind-mounted at `/app`.
 
-Build the debug APK:
+Build the debug APK (apk-builder is one-shot under the `apk` profile so the
+platform validator doesn't flag its exit-0 termination as a failure):
 ```
-docker compose -f docker-compose.base44.yml run --rm apk-builder
+docker compose -f docker-compose.base44.yml --profile apk run --rm apk-builder
 ```
 Output: `TaxiDrive_v2_beta/app/build/outputs/apk/debug/app-debug.apk`
 

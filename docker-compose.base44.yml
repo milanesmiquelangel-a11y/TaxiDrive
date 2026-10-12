@@ -12,13 +12,18 @@ services:
       - ./TaxiDrive_v2_beta/app/build/outputs/apk/debug:/apk:ro
     restart: on-failure
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80/"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
 
   apk-builder:
+    # Servicio de un solo uso (compila la APK y termina con exit 0). Con el
+    # perfil "apk" no arranca con `up -d`, así el validador de la plataforma
+    # no lo interpreta como fallo; se ejecuta explícitamente con:
+    #   docker compose -f docker-compose.base44.yml --profile apk run --rm apk-builder
+    profiles: ["apk"]
     build:
       context: ./TaxiDrive_v2_beta
       dockerfile: Dockerfile.build

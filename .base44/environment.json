@@ -3,5 +3,5 @@
   "healthPath": "/",
   "startCommand": "docker compose -f docker-compose.base44.yml up -d",
   "secrets": [],
-  "notes": "Native Android app (Kotlin + Compose + Firebase). No web frontend exists: the 'web-preview' service (nginx) serves an info page + the compiled debug APK on port 3000 so the Base44 preview loads and the APK can be installed on a phone. Build the APK with: docker compose -f docker-compose.base44.yml run --rm apk-builder. Output: TaxiDrive_v2_beta/app/build/outputs/apk/debug/app-debug.apk (download at /apk/app-debug.apk)."
+  "notes": "Native Android app (Kotlin + Compose + Firebase). No web frontend: the 'web-preview' service (nginx) serves an info page + the compiled debug APK on port 3000. Build the APK with: docker compose -f docker-compose.base44.yml --profile apk run --rm apk-builder (one-shot service, exits 0). Output: TaxiDrive_v2_beta/app/build/outputs/apk/debug/app-debug.apk, downloadable at /apk/app-debug.apk."
 }
