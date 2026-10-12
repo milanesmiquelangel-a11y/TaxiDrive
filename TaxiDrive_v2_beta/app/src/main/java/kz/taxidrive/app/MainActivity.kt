@@ -42,6 +42,8 @@ class MainActivity : ComponentActivity() {
 
     private var listenerSolicitudes: ListenerRegistration? = null
     private val solicitudesVistas = mutableSetOf<String>()
+    private var listenerOfertas: ListenerRegistration? = null
+    private val ofertasVistas = mutableSetOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +54,7 @@ class MainActivity : ComponentActivity() {
         solicitarPermisoNotificaciones()
         obtenerTokenFCM()
         escucharSolicitudesParaConductor()
+        escucharOfertasParaPasajero()
 
         setContent {
             TaxiDriveTheme {
@@ -85,6 +88,57 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         listenerSolicitudes?.remove()
         listenerSolicitudes = null
+        listenerOfertas?.remove()
+        listenerOfertas = null
+    }
+
+    // Escucha nuevas ofertas de conductores en tiempo real y notifica al pasajero
+    // solo cuando la ruta (origen y destino) coincide con una solicitud publicada.
+    private fun escucharOfertasParaPasajero() {
+        val db = FirebaseFirestore.getInstance()
+        listenerOfertas = db.collection("ofertas")
+            .addSnapshotListener { snapshots, error ->
+                if (error != null || snapshots == null) return@addSnapshotListener
+
+                // Primera carga: registrar ofertas existentes sin notificar
+                if (ofertasVistas.isEmpty() && snapshots.documents.isNotEmpty()) {
+                    for (doc in snapshots.documents) {
+                        ofertasVistas.add(doc.id)
+                    }
+                    return@addSnapshotListener
+                }
+
+                for (cambio in snapshots.documentChanges) {
+                    if (cambio.type == DocumentChange.Type.ADDED &&
+                        ofertasVistas.add(cambio.document.id)
+                    ) {
+                        val origen = cambio.document.getString("origin") ?: ""
+                        val destino = cambio.document.getString("destination") ?: ""
+                        verificarSolicitudYNotificar(origen, destino)
+                    }
+                }
+            }
+    }
+
+    private fun verificarSolicitudYNotificar(origen: String, destino: String) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("solicitudes").get().addOnSuccessListener { result ->
+            val coincide = result.documents.any { solicitud ->
+                val o = (solicitud.getString("origin") ?: "").trim()
+                val d = (solicitud.getString("destination") ?: "").trim()
+                o.equals(origen.trim(), ignoreCase = true) &&
+                    d.equals(destino.trim(), ignoreCase = true)
+            }
+            if (coincide) {
+                NotificationHelper.mostrarNotificacion(
+                    context = this,
+                    id = System.currentTimeMillis().toInt(),
+                    titulo = "Nueva oferta disponible",
+                    mensaje = if (origen.isNotEmpty() && destino.isNotEmpty())
+                        "$origen → $destino" else "Un conductor publicó una oferta en tu ruta"
+                )
+            }
+        }
     }
 
     // Escucha nuevas solicitudes de pasajeros en tiempo real y notifica al conductor
