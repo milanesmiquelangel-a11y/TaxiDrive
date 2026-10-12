@@ -1,0 +1,93 @@
+{
+  "name": "TripRequest",
+  "type": "object",
+  "properties": {
+    "passenger_id": {
+      "type": "string",
+      "description": "Firebase/Base44 authenticated user id of the passenger"
+    },
+    "origin": {
+      "type": "string"
+    },
+    "destination": {
+      "type": "string"
+    },
+    "departure_date": {
+      "type": "string"
+    },
+    "departure_time": {
+      "type": "string"
+    },
+    "comment": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "matched",
+        "cancelled",
+        "completed"
+      ],
+      "default": "open"
+    },
+    "city": {
+      "type": "string",
+      "default": ""
+    }
+  },
+  "required": [
+    "passenger_id",
+    "origin",
+    "destination",
+    "departure_date",
+    "departure_time",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "data.passenger_id": "{{user.id}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "data.passenger_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.passenger_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.passenger_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
