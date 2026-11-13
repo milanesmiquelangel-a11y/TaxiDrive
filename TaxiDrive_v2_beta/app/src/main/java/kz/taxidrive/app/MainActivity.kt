@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import kz.taxidrive.app.repository.AuthRepository
 import kz.taxidrive.app.repository.AuthSession
 import kz.taxidrive.app.screens.DriverProfileScreen
+import kz.taxidrive.app.screens.DriverScreen
 import kz.taxidrive.app.screens.LoginScreen
 import kz.taxidrive.app.screens.RegisterScreen
 import kz.taxidrive.app.screens.PassengerScreen
@@ -71,11 +72,13 @@ fun TaxiDriveApp() {
             }
         )
         "driver_profile" -> DriverProfileScreen(onBack = { screen = "account" })
+        "driver_offers" -> DriverScreen(volver = { screen = "account" })
         "passenger_requests" -> PassengerScreen(volver = { screen = "account" })
         else -> session?.let { current ->
             AccountHome(
                 session = current,
                 onDriverProfile = { screen = "driver_profile" },
+                onDriverOffers = { screen = "driver_offers" },
                 onPassengerRequests = { screen = "passenger_requests" },
                 onLogout = {
                     scope.launch {
@@ -94,7 +97,7 @@ fun TaxiDriveApp() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AccountHome(session: AuthSession, onDriverProfile: () -> Unit, onPassengerRequests: () -> Unit, onLogout: () -> Unit) {
+private fun AccountHome(session: AuthSession, onDriverProfile: () -> Unit, onDriverOffers: () -> Unit, onPassengerRequests: () -> Unit, onLogout: () -> Unit) {
     val roleLabel = when (session.role) {
         "passenger" -> "Pasajero"
         "driver" -> "Conductor"
@@ -133,6 +136,12 @@ private fun AccountHome(session: AuthSession, onDriverProfile: () -> Unit, onPas
                     Spacer(Modifier.height(12.dp))
                     OutlinedButton(onClick = onDriverProfile, modifier = Modifier.fillMaxWidth()) {
                         Text("Completar perfil del vehículo y fotografías")
+                    }
+                    if (status == "approved") {
+                        Spacer(Modifier.height(8.dp))
+                        Button(onClick = onDriverOffers, modifier = Modifier.fillMaxWidth()) {
+                            Text("Ver solicitudes y enviar ofertas")
+                        }
                     }
                 }
                 "passenger" -> {
