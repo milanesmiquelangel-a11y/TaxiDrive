@@ -50,8 +50,20 @@ private interface TaxiDriveQaApi {
         @Header("Authorization") bearer: String,
         @Body body: PassengerRequestBody
     ): Response<JsonElement>
+    @GET("auth/me") suspend fun me(@Header("Authorization") bearer: String): Response<JsonElement>
+    @GET("drivers/me") suspend fun driverProfile(@Header("Authorization") bearer: String): Response<JsonElement>
+    @GET("drivers/me/activation") suspend fun driverActivation(@Header("Authorization") bearer: String): Response<JsonElement>
+    @GET("requests") suspend fun availableRequests(@Header("Authorization") bearer: String): Response<JsonElement>
+    @POST("offers") suspend fun createOffer(@Header("Authorization") bearer: String, @Body body: DriverOfferBody): Response<JsonElement>
     @GET("requests") suspend fun myRequests(@Header("Authorization") bearer: String): Response<JsonElement>
 }
+
+private data class DriverOfferBody(
+    @SerializedName("request_id") val requestId: Long,
+    @SerializedName("price_per_passenger_kzt") val pricePerPassengerKzt: Long,
+    @SerializedName("available_seats") val availableSeats: Int,
+    val message: String?
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
@@ -75,6 +87,14 @@ class MainActivity : ComponentActivity() {
                 var name by remember { mutableStateOf("") }
                 var password by remember { mutableStateOf("") }
                 var role by remember { mutableStateOf("passenger") }
+                var accountRole by remember { mutableStateOf<String?>(null) }
+                var driverProfileJson by remember { mutableStateOf("") }
+                var activationJson by remember { mutableStateOf("") }
+                var availableRequestsJson by remember { mutableStateOf("") }
+                var offerRequestId by remember { mutableStateOf("3") }
+                var offerPrice by remember { mutableStateOf("") }
+                var offerSeats by remember { mutableStateOf("1") }
+                var offerMessage by remember { mutableStateOf("") }
                 var token by remember { mutableStateOf(tokenStore.read()) }
                 var status by remember { mutableStateOf(if (token != null) "Sesión recuperada de forma segura." else "Conectado a TaxiDrive API.") }
                 var busy by remember { mutableStateOf(false) }
@@ -101,11 +121,29 @@ class MainActivity : ComponentActivity() {
                     }
                     tokenStore.save(accessToken)
                     token = accessToken
+                    val user = json.getAsJsonObject("user")
+                    accountRole = user?.get("role")?.asString ?: role
                     status = "Sesión iniciada correctamente. Token guardado cifrado en este dispositivo."
                 }
 
+                LaunchedEffect(token) {
+                    val currentToken = token
+                    if (currentToken != null) {
+                        try {
+                            val me = api.me("Bearer $currentToken")
+                            if (me.isSuccessful) {
+                                val user = me.body()?.asJsonObject
+                                accountRole = user?.get("role")?.asString ?: accountRole
+                            } else if (me.code() == 401) {
+                                tokenStore.clear(); token = null; accountRole = null
+                                status = "La sesión expiró. Inicia sesión nuevamente."
+                            }
+                        } catch (_: Exception) { status = "No se pudo verificar la sesión. Comprueba tu conexión." }
+                    } else accountRole = null
+                }
+
                 Scaffold(topBar = {
-                    TopAppBar(title = { Text(if (token == null) "TaxiDrive QA · Backend directo" else "TaxiDrive QA · Pasajero") })
+                    TopAppBar(title = { Text(if (token == null) "TaxiDrive QA · Backend directo" else if (accountRole == "driver") "TaxiDrive QA · Conductor" else "TaxiDrive QA · Pasajero") })
                 }) { padding ->
                     Column(
                         Modifier.fillMaxSize().padding(padding).padding(20.dp).verticalScroll(rememberScrollState()),
@@ -147,7 +185,7 @@ class MainActivity : ComponentActivity() {
                             ) { Text("Crear cuenta de prueba") }
                         } else {
                             Text("Sesión autenticada. El token no se muestra en pantalla.")
-                            if (role == "passenger") {
+                            if (accountRole == "passenger" || accountRole == null) {
                                 Text("Publicar solicitud de viaje", style = MaterialTheme.typography.titleMedium)
                                 OutlinedTextField(origin, { origin = it }, label = { Text("Origen") }, modifier = Modifier.fillMaxWidth())
                                 OutlinedTextField(destination, { destination = it }, label = { Text("Destino") }, modifier = Modifier.fillMaxWidth())
@@ -197,14 +235,76 @@ class MainActivity : ComponentActivity() {
                                         Text(requestsJson, Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
                                     }
                                 }
+                            } else if (accountRole == "driver") {
+                                Text("Panel del conductor", style = MaterialTheme.typography.titleMedium)
+                                OutlinedButton(
+                                    enabled = !busy,
+                                    onClick = {
+                                        scope.launch {
+                                            busy = true
+                                            try {
+                                                val p = api.driverProfile("Bearer $token")
+                                                driverProfileJson = if (p.isSuccessful) p.body()?.toString().orEmpty() else "HTTP ${p.code()}: ${p.errorBody()?.string().orEmpty()}"
+                                                val a = api.driverActivation("Bearer $token")
+                                                activationJson = if (a.isSuccessful) a.body()?.toString().orEmpty() else "HTTP ${a.code()}: ${a.errorBody()?.string().orEmpty()}"
+                                                status = "Estado del conductor actualizado."
+                                            } catch (e: Exception) { status = "Error al consultar perfil: ${e.message ?: "desconocido"}" }
+                                            busy = false
+                                        }
+                                    }, modifier = Modifier.fillMaxWidth()
+                                ) { Text("Consultar mi perfil y aprobación") }
+                                if (driverProfileJson.isNotBlank()) Text("Perfil y aprobación: $driverProfileJson")
+                                if (activationJson.isNotBlank()) Text("Activación: $activationJson")
+                                OutlinedButton(
+                                    enabled = !busy,
+                                    onClick = {
+                                        scope.launch {
+                                            busy = true
+                                            try {
+                                                val r = api.availableRequests("Bearer $token")
+                                                availableRequestsJson = if (r.isSuccessful) r.body()?.toString().orEmpty() else "HTTP ${r.code()}: ${r.errorBody()?.string().orEmpty()}"
+                                                status = "Consulta de solicitudes disponibles completada."
+                                            } catch (e: Exception) { status = "Error de conexión: ${e.message ?: "desconocido"}" }
+                                            busy = false
+                                        }
+                                    }, modifier = Modifier.fillMaxWidth()
+                                ) { Text("Ver solicitudes disponibles") }
+                                if (availableRequestsJson.isNotBlank()) {
+                                    Text("Solicitudes disponibles", style = MaterialTheme.typography.titleMedium)
+                                    Surface(tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
+                                        Text(availableRequestsJson, Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                                Text("Enviar oferta", style = MaterialTheme.typography.titleMedium)
+                                OutlinedTextField(offerRequestId, { offerRequestId = it.filter(Char::isDigit) }, label = { Text("ID de solicitud") }, modifier = Modifier.fillMaxWidth())
+                                OutlinedTextField(offerPrice, { offerPrice = it.filter(Char::isDigit) }, label = { Text("Precio por pasajero (₸)") }, modifier = Modifier.fillMaxWidth())
+                                OutlinedTextField(offerSeats, { offerSeats = it.filter(Char::isDigit) }, label = { Text("Plazas disponibles") }, modifier = Modifier.fillMaxWidth())
+                                OutlinedTextField(offerMessage, { offerMessage = it }, label = { Text("Mensaje (opcional)") }, modifier = Modifier.fillMaxWidth())
+                                Button(
+                                    enabled = !busy && (offerRequestId.toLongOrNull() ?: 0) > 0 && (offerPrice.toLongOrNull() ?: 0) > 0 && (offerSeats.toIntOrNull() ?: 0) > 0,
+                                    onClick = {
+                                        scope.launch {
+                                            busy = true
+                                            try {
+                                                val response = api.createOffer(
+                                                    "Bearer $token",
+                                                    DriverOfferBody(offerRequestId.toLong(), offerPrice.toLong(), offerSeats.toInt(), offerMessage.trim().ifBlank { null })
+                                                )
+                                                status = if (response.isSuccessful) "Oferta enviada correctamente (HTTP ${response.code()})." else "No se pudo enviar la oferta (HTTP ${response.code()}): ${response.errorBody()?.string()?.take(500).orEmpty()}"
+                                            } catch (e: Exception) { status = "Error de conexión: ${e.message ?: "desconocido"}" }
+                                            busy = false
+                                        }
+                                    }, modifier = Modifier.fillMaxWidth()
+                                ) { Text("Enviar oferta") }
                             } else {
-                                Text("La sesión de conductor está autenticada. El flujo de aprobación y publicación de ofertas se incorporará en la siguiente etapa.")
+                                Text("No se pudo determinar el rol de esta cuenta. Cierra sesión e inicia nuevamente.")
                             }
                             OutlinedButton(
                                 enabled = !busy,
                                 onClick = {
                                     tokenStore.clear()
                                     token = null
+                                    accountRole = null
                                     requestsJson = ""
                                     status = "Sesión cerrada. El token local fue eliminado."
                                 },
