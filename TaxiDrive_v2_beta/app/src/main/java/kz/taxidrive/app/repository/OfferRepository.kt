@@ -1,6 +1,7 @@
 package kz.taxidrive.app.repository
 
 import android.content.Context
+import kz.taxidrive.app.data.network.AcceptOfferDto
 import kz.taxidrive.app.data.network.ApiClient
 import kz.taxidrive.app.data.network.CreateOfferPayload
 import kz.taxidrive.app.data.network.DriverOfferDto
@@ -16,6 +17,18 @@ object OfferRepository {
             ApiClient(context.applicationContext).create(OfferApi::class.java)
                 .createOffer(CreateOfferPayload(requestId, priceKzt, message?.trim()?.takeIf { it.isNotEmpty() }))
                 .execute().requireBody()
+        }
+
+    suspend fun listForRequest(context: Context, requestId: Long): List<DriverOfferDto> =
+        withContext(Dispatchers.IO) {
+            ApiClient(context.applicationContext).create(OfferApi::class.java)
+                .getOffers(requestId).execute().requireBody().items
+        }
+
+    suspend fun accept(context: Context, offerId: Long): AcceptOfferDto =
+        withContext(Dispatchers.IO) {
+            ApiClient(context.applicationContext).create(OfferApi::class.java)
+                .acceptOffer(offerId).execute().requireBody()
         }
 
     private fun <T> Response<T>.requireBody(): T {
