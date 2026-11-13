@@ -23,7 +23,7 @@ fun OfferChatScreen(offerId: Long, volver: () -> Unit) {
  fun refresh() { scope.launch { try { messages=OfferMessageRepository.list(context,offerId); status=if(messages.isEmpty()) "Todavía no hay mensajes." else "" } catch(e:Exception) { status=e.message ?: "Chat no disponible para esta oferta." } } }
  LaunchedEffect(offerId) { try { myId=AuthRepository.restoreSession(context)?.id } catch(_:Exception) {}; refresh() }
  Scaffold(topBar={ TopAppBar(title={ Text("Chat del viaje") }) }) { padding ->
-  Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+  Column(Modifier.fillMaxSize().padding(padding).padding(16.dp).imePadding()) {
    OutlinedButton(onClick=volver,modifier=Modifier.fillMaxWidth()){Text("← Volver")}
    if(status.isNotBlank()) Text(status,color=MaterialTheme.colorScheme.secondary)
    LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
