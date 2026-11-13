@@ -53,6 +53,7 @@ private interface TaxiDriveQaApi {
     @GET("requests") suspend fun myRequests(@Header("Authorization") bearer: String): Response<JsonElement>
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
