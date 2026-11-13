@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - backend-integration-foundation
+      - backend-qa-direct
     paths:
       - 'TaxiDrive_v2_beta/**'
       - 'BACKEND_INTEGRATION.md'
