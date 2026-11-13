@@ -38,6 +38,9 @@ fun NavGraph(
             RegisterScreen(
                 volverLogin = {
                     navController.popBackStack()
+                },
+                registroCorrecto = {
+                    navController.navigate(Routes.HOME)
                 }
             )
 
