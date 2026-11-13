@@ -39,7 +39,7 @@ fun OfferChatScreen(offerId: Long, volver: () -> Unit) {
     Spacer(Modifier.width(8.dp))
     Button(enabled=draft.isNotBlank() && !sending,onClick={ val msg=draft.trim(); scope.launch { sending=true; try { OfferMessageRepository.send(context,offerId,msg); draft=""; refresh() } catch(e:Exception) { status=e.message ?: "No se pudo enviar." } finally { sending=false } } }) { Text(if(sending) "…" else "Enviar") }
    }
-   TextButton(onClick={refresh},modifier=Modifier.fillMaxWidth()){Text("Actualizar mensajes")}
+   TextButton(onClick={ { refresh() } },modifier=Modifier.fillMaxWidth()){Text("Actualizar mensajes")}
   }
  }
 }
