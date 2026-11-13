@@ -20,7 +20,11 @@ data class DriverOfferDto(
     val price_per_passenger_kzt: Int,
     val message: String? = null,
     val status: String,
-    val created_at: String? = null
+    val created_at: String? = null,
+    val origin_text: String? = null,
+    val destination_text: String? = null,
+    val departure_at: String? = null,
+    val passenger_count: Int? = null
 )
 
 data class OfferListDto(
