@@ -11,23 +11,17 @@ android {
             minorApiLevel = 1
         }
     }
-
     defaultConfig {
         applicationId = "kz.taxidrive.app"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "API_BASE_URL", "\"https://cloud-001.tail3baa0f.ts.net/\"")
     }
-
     buildTypes {
-        release {
-            optimization {
-                enable = false
-            }
-        }
+        release { optimization { enable = false } }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -35,6 +29,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -54,7 +49,15 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    // Keep Firebase temporarily for legacy flows not yet migrated.
     implementation("com.google.firebase:firebase-auth-ktx:23.2.0")
     implementation("com.google.firebase:firebase-firestore-ktx:25.1.0")
     implementation("androidx.navigation:navigation-compose:2.9.3")
+
+    // Own-backend networking foundation.
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 }
