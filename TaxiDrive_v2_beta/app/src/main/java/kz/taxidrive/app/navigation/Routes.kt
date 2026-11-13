@@ -8,6 +8,7 @@ object Routes {
     const val PASSENGER = "passenger"
     const val DRIVER = "driver"
     const val ADMIN = "admin"
+    const val CHAT = "chat/{offerId}"
     const val FEED = "feed"
     const val PROFILE = "profile"
     const val MY_TRIPS = "my_trips"
