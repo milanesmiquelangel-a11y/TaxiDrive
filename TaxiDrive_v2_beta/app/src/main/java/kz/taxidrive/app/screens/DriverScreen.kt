@@ -33,12 +33,19 @@ fun DriverScreen(volver: () -> Unit, abrirChat: (Long) -> Unit = {}) {
             statusText = ""
             try {
                 requests = RequestRepository.list(context)
-                myOffers = runCatching { OfferRepository.listMyOffers(context) }.getOrDefault(emptyList())
                 error = false
                 if (requests.isEmpty()) statusText = "No hay solicitudes disponibles por ahora."
             } catch (e: Exception) {
                 statusText = e.message ?: "No se pudieron cargar las solicitudes. Comprueba tu aprobación y activación."
                 error = true
+            }
+            try {
+                myOffers = OfferRepository.listMyOffers(context)
+            } catch (e: Exception) {
+                if (statusText.isBlank() || statusText == "No hay solicitudes disponibles por ahora.") {
+                    statusText = e.message ?: "No se pudieron cargar tus ofertas anteriores."
+                    error = true
+                }
             } finally {
                 loading = false
             }
@@ -68,6 +75,11 @@ fun DriverScreen(volver: () -> Unit, abrirChat: (Long) -> Unit = {}) {
                     Card(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
                         Column(Modifier.padding(12.dp)) {
                             Text("Oferta #${offer.id}", style = MaterialTheme.typography.titleMedium)
+                            if (!offer.origin_text.isNullOrBlank() || !offer.destination_text.isNullOrBlank()) {
+                                Text("${offer.origin_text.orEmpty()} → ${offer.destination_text.orEmpty()}", style = MaterialTheme.typography.bodyMedium)
+                            }
+                            offer.departure_at?.let { Text("Salida: $it") }
+                            offer.passenger_count?.let { Text("Pasajeros solicitados: $it") }
                             Text("${offer.price_per_passenger_kzt} ₸ por pasajero · Estado: ${offer.status}")
                             if (offer.status == "accepted") {
                                 Button(onClick = { abrirChat(offer.id) }, modifier = Modifier.fillMaxWidth()) { Text("Abrir chat del viaje") }
