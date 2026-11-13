@@ -39,18 +39,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Verify and prepare preinstalled Android SDK
-        shell: bash
-        run: |
-          set -euo pipefail
-          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          test -d "$SDK"
-          SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
-          test -x "$SDKMANAGER"
-          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
-          yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses >/dev/null
-          "$SDKMANAGER" --sdk_root="$SDK" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+
+      - name: Install required Android SDK packages
+        run: sdkmanager 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0'
 
       - name: Enable Gradle wrapper
         working-directory: TaxiDrive_v2_beta
