@@ -15,10 +15,11 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DriverScreen(volver: () -> Unit) {
+fun DriverScreen(volver: () -> Unit, abrirChat: (Long) -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var requests by remember { mutableStateOf(emptyList<RideRequestDto>()) }
+    var myOffers by remember { mutableStateOf(emptyList<kz.taxidrive.app.data.network.DriverOfferDto>()) }
     var prices by remember { mutableStateOf<Map<Long, String>>(emptyMap()) }
     var messages by remember { mutableStateOf<Map<Long, String>>(emptyMap()) }
     var statusText by remember { mutableStateOf("") }
@@ -32,6 +33,7 @@ fun DriverScreen(volver: () -> Unit) {
             statusText = ""
             try {
                 requests = RequestRepository.list(context)
+                myOffers = runCatching { OfferRepository.listMyOffers(context) }.getOrDefault(emptyList())
                 error = false
                 if (requests.isEmpty()) statusText = "No hay solicitudes disponibles por ahora."
             } catch (e: Exception) {
@@ -59,6 +61,22 @@ fun DriverScreen(volver: () -> Unit) {
             if (loading) CircularProgressIndicator()
             if (statusText.isNotBlank()) {
                 Text(statusText, color = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+            }
+            if (myOffers.isNotEmpty()) {
+                Text("Mis ofertas", style = MaterialTheme.typography.titleLarge)
+                myOffers.forEach { offer ->
+                    Card(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text("Oferta #${offer.id}", style = MaterialTheme.typography.titleMedium)
+                            Text("${offer.price_per_passenger_kzt} ₸ por pasajero · Estado: ${offer.status}")
+                            if (offer.status == "accepted") {
+                                Button(onClick = { abrirChat(offer.id) }, modifier = Modifier.fillMaxWidth()) { Text("Abrir chat del viaje") }
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                Text("Nuevas solicitudes", style = MaterialTheme.typography.titleLarge)
             }
             requests.forEach { request ->
                 Card(Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
