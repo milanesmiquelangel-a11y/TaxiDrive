@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kz.taxidrive.app.repository.AuthRepository
 import kz.taxidrive.app.repository.AuthSession
+import kz.taxidrive.app.screens.DriverProfileScreen
 import kz.taxidrive.app.screens.LoginScreen
 import kz.taxidrive.app.screens.RegisterScreen
 import kz.taxidrive.app.ui.theme.TaxiDriveTheme
@@ -68,9 +69,11 @@ fun TaxiDriveApp() {
                 screen = "account"
             }
         )
+        "driver_profile" -> DriverProfileScreen(onBack = { screen = "account" })
         else -> session?.let { current ->
             AccountHome(
                 session = current,
+                onDriverProfile = { screen = "driver_profile" },
                 onLogout = {
                     scope.launch {
                         AuthRepository.logout(context)
@@ -88,7 +91,7 @@ fun TaxiDriveApp() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AccountHome(session: AuthSession, onLogout: () -> Unit) {
+private fun AccountHome(session: AuthSession, onDriverProfile: () -> Unit, onLogout: () -> Unit) {
     val roleLabel = when (session.role) {
         "passenger" -> "Pasajero"
         "driver" -> "Conductor"
@@ -123,6 +126,10 @@ private fun AccountHome(session: AuthSession, onLogout: () -> Unit) {
                     session.freeTrialEndsAt?.let {
                         Spacer(Modifier.height(8.dp))
                         Text("Fin del período gratuito: $it")
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedButton(onClick = onDriverProfile, modifier = Modifier.fillMaxWidth()) {
+                        Text("Completar perfil del vehículo y fotografías")
                     }
                 }
                 "passenger" -> Text(
