@@ -54,6 +54,7 @@ private interface TaxiDriveQaApi {
     @GET("drivers/me") suspend fun driverProfile(@Header("Authorization") bearer: String): Response<JsonElement>
     @GET("drivers/me/activation") suspend fun driverActivation(@Header("Authorization") bearer: String): Response<JsonElement>
     @GET("requests") suspend fun availableRequests(@Header("Authorization") bearer: String): Response<JsonElement>
+    @GET("requests/{requestId}") suspend fun request(@Header("Authorization") bearer: String, @retrofit2.http.Path("requestId") requestId: Long): Response<JsonElement>
     @POST("offers") suspend fun createOffer(@Header("Authorization") bearer: String, @Body body: DriverOfferBody): Response<JsonElement>
     @GET("requests") suspend fun myRequests(@Header("Authorization") bearer: String): Response<JsonElement>
 }
@@ -93,7 +94,6 @@ class MainActivity : ComponentActivity() {
                 var availableRequestsJson by remember { mutableStateOf("") }
                 var offerRequestId by remember { mutableStateOf("3") }
                 var offerPrice by remember { mutableStateOf("") }
-                var offerSeats by remember { mutableStateOf("1") }
                 var offerMessage by remember { mutableStateOf("") }
                 var token by remember { mutableStateOf(tokenStore.read()) }
                 var status by remember { mutableStateOf(if (token != null) "Sesión recuperada de forma segura." else "Conectado a TaxiDrive API.") }
@@ -278,19 +278,25 @@ class MainActivity : ComponentActivity() {
                                 Text("Enviar oferta", style = MaterialTheme.typography.titleMedium)
                                 OutlinedTextField(offerRequestId, { offerRequestId = it.filter(Char::isDigit) }, label = { Text("ID de solicitud") }, modifier = Modifier.fillMaxWidth())
                                 OutlinedTextField(offerPrice, { offerPrice = it.filter(Char::isDigit) }, label = { Text("Precio por pasajero (₸)") }, modifier = Modifier.fillMaxWidth())
-                                OutlinedTextField(offerSeats, { offerSeats = it.filter(Char::isDigit) }, label = { Text("Plazas disponibles") }, modifier = Modifier.fillMaxWidth())
                                 OutlinedTextField(offerMessage, { offerMessage = it }, label = { Text("Mensaje (opcional)") }, modifier = Modifier.fillMaxWidth())
                                 Button(
-                                    enabled = !busy && (offerRequestId.toLongOrNull() ?: 0) > 0 && (offerPrice.toLongOrNull() ?: 0) > 0 && (offerSeats.toIntOrNull() ?: 0) > 0,
+                                    enabled = !busy && (offerRequestId.toLongOrNull() ?: 0) > 0 && (offerPrice.toLongOrNull() ?: 0) > 0,
                                     onClick = {
                                         scope.launch {
                                             busy = true
                                             try {
-                                                val response = api.createOffer(
-                                                    "Bearer $token",
-                                                    DriverOfferBody(offerRequestId.toLong(), offerPrice.toLong(), offerSeats.toInt(), offerMessage.trim().ifBlank { null })
-                                                )
-                                                status = if (response.isSuccessful) "Oferta enviada correctamente (HTTP ${response.code()})." else "No se pudo enviar la oferta (HTTP ${response.code()}): ${response.errorBody()?.string()?.take(500).orEmpty()}"
+                                                val requestResponse = api.request("Bearer $token", offerRequestId.toLong())
+                                                if (!requestResponse.isSuccessful) {
+                                                    status = "No se pudo consultar la solicitud (HTTP ${requestResponse.code()})."
+                                                } else {
+                                                    val requestJson = requestResponse.body()?.asJsonObject
+                                                    val passengerCount = requestJson?.get("passenger_count")?.asInt ?: 1
+                                                    val response = api.createOffer(
+                                                        "Bearer $token",
+                                                        DriverOfferBody(offerRequestId.toLong(), offerPrice.toLong(), passengerCount, offerMessage.trim().ifBlank { null })
+                                                    )
+                                                    status = if (response.isSuccessful) "Oferta enviada correctamente (HTTP ${response.code()}). Las plazas se ajustaron automáticamente a la cantidad solicitada por el pasajero." else "No se pudo enviar la oferta (HTTP ${response.code()}): ${response.errorBody()?.string()?.take(500).orEmpty()}"
+                                                }
                                             } catch (e: Exception) { status = "Error de conexión: ${e.message ?: "desconocido"}" }
                                             busy = false
                                         }
