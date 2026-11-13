@@ -25,6 +25,12 @@ object OfferRepository {
                 .getOffers(requestId).execute().requireBody().items
         }
 
+    suspend fun listMyOffers(context: Context): List<DriverOfferDto> =
+        withContext(Dispatchers.IO) {
+            ApiClient(context.applicationContext).create(OfferApi::class.java)
+                .getMyOffers().execute().requireBody().items
+        }
+
     suspend fun accept(context: Context, offerId: Long): AcceptOfferDto =
         withContext(Dispatchers.IO) {
             ApiClient(context.applicationContext).create(OfferApi::class.java)
