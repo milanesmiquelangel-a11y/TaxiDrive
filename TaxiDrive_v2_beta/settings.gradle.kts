@@ -23,4 +23,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "TaxiDrive"
-include(":app")
+include(":app", ":qa")
