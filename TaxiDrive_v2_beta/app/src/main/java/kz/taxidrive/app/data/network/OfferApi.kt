@@ -15,6 +15,8 @@ data class CreateOfferPayload(
 data class DriverOfferDto(
     val id: Long,
     val request_id: Long,
+    val driver_user_id: Long? = null,
+    val driver_name: String? = null,
     val price_per_passenger_kzt: Int,
     val message: String? = null,
     val status: String,
@@ -26,10 +28,19 @@ data class OfferListDto(
     val count: Int = 0
 )
 
+data class AcceptOfferDto(
+    val accepted: Boolean,
+    val offer_id: Long,
+    val request_id: Long
+)
+
 interface OfferApi {
     @POST("offers")
     fun createOffer(@Body body: CreateOfferPayload): Call<DriverOfferDto>
 
     @GET("requests/{request_id}/offers")
     fun getOffers(@Path("request_id") requestId: Long): Call<OfferListDto>
+
+    @POST("offers/{offer_id}/accept")
+    fun acceptOffer(@Path("offer_id") offerId: Long): Call<AcceptOfferDto>
 }
