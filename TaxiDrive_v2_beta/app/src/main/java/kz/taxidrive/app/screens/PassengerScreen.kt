@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kz.taxidrive.app.repository.RequestRepository
+import kz.taxidrive.app.repository.OfferRepository
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -34,6 +35,9 @@ fun PassengerScreen(volver: () -> Unit) {
     var loading by remember { mutableStateOf(false) }
     var requests by remember { mutableStateOf(emptyList<kz.taxidrive.app.data.network.RideRequestDto>()) }
     var loadingList by remember { mutableStateOf(false) }
+    var offersByRequest by remember { mutableStateOf<Map<Long, List<kz.taxidrive.app.data.network.DriverOfferDto>>>(emptyMap()) }
+    var expandedRequestId by remember { mutableStateOf<Long?>(null) }
+    var acceptingOfferId by remember { mutableStateOf<Long?>(null) }
 
     fun loadRequests() {
         scope.launch {
@@ -169,6 +173,63 @@ fun PassengerScreen(volver: () -> Unit) {
                         Text("Salida: ${request.departure_at}")
                         request.status?.let { Text("Estado: $it") }
                         request.comment?.takeIf { it.isNotBlank() }?.let { Text(it) }
+                        Spacer(Modifier.height(8.dp))
+                        TextButton(onClick = {
+                            expandedRequestId = if (expandedRequestId == request.id) null else request.id
+                            if (offersByRequest[request.id] == null) {
+                                scope.launch {
+                                    try {
+                                        offersByRequest = offersByRequest + (request.id to OfferRepository.listForRequest(context, request.id))
+                                    } catch (e: Exception) {
+                                        message = e.message ?: "No se pudieron cargar las ofertas."
+                                        isError = true
+                                    }
+                                }
+                            }
+                        }) { Text(if (expandedRequestId == request.id) "Ocultar ofertas" else "Ver ofertas") }
+                        if (expandedRequestId == request.id) {
+                            val requestOffers = offersByRequest[request.id].orEmpty()
+                            if (requestOffers.isEmpty()) {
+                                Text("Todavía no hay ofertas para esta solicitud.")
+                            } else {
+                                requestOffers.forEach { offer ->
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                                    ) {
+                                        Column(Modifier.padding(12.dp)) {
+                                            Text(offer.driver_name?.takeIf { it.isNotBlank() } ?: "Conductor", style = MaterialTheme.typography.titleMedium)
+                                            Text("${offer.price_per_passenger_kzt} ₸ por pasajero")
+                                            offer.message?.takeIf { it.isNotBlank() }?.let { Text(it) }
+                                            Text("Estado: ${offer.status}")
+                                            if (request.status != "matched" && offer.status == "pending") {
+                                                Button(
+                                                    enabled = acceptingOfferId == null,
+                                                    onClick = {
+                                                        scope.launch {
+                                                            acceptingOfferId = offer.id
+                                                            try {
+                                                                OfferRepository.accept(context, offer.id)
+                                                                message = "Oferta aceptada correctamente."
+                                                                isError = false
+                                                                offersByRequest = offersByRequest - request.id
+                                                                loadRequests()
+                                                                offersByRequest = offersByRequest + (request.id to OfferRepository.listForRequest(context, request.id))
+                                                            } catch (e: Exception) {
+                                                                message = e.message ?: "No se pudo aceptar la oferta."
+                                                                isError = true
+                                                            } finally {
+                                                                acceptingOfferId = null
+                                                            }
+                                                        }
+                                                    }
+                                                ) { Text(if (acceptingOfferId == offer.id) "Aceptando..." else "Aceptar oferta") }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
