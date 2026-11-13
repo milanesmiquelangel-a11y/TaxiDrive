@@ -1,0 +1,72 @@
+name: TaxiDrive Android - backend integration
+
+on:
+  push:
+    branches:
+      - backend-integration-foundation
+    paths:
+      - 'TaxiDrive_v2_beta/**'
+      - 'BACKEND_INTEGRATION.md'
+      - '.github/workflows/android-backend-integration.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'TaxiDrive_v2_beta/**'
+      - 'BACKEND_INTEGRATION.md'
+      - '.github/workflows/android-backend-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: taxidrive-android-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Compile and test Android app
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+
+      - name: Install required Android SDK packages
+        run: sdkmanager 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Enable Gradle wrapper
+        working-directory: TaxiDrive_v2_beta
+        run: chmod +x ./gradlew
+
+      - name: Compile debug Kotlin
+        working-directory: TaxiDrive_v2_beta
+        run: ./gradlew :app:compileDebugKotlin --no-daemon
+
+      - name: Run unit tests
+        working-directory: TaxiDrive_v2_beta
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
+
+      - name: Assemble debug APK
+        working-directory: TaxiDrive_v2_beta
+        run: ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: taxidrive-backend-integration-debug
+          path: TaxiDrive_v2_beta/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
