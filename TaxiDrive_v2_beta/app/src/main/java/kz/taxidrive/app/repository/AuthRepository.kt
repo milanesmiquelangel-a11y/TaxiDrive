@@ -29,7 +29,7 @@ object AuthRepository {
                 .login(AuthCredentials(phone = phone.trim(), password = password)).execute()
             val body = response.requireBody()
             client.saveSessionToken(body.access_token)
-            body.user.toSession(body.driver_status)
+            client.create(AuthApi::class.java).me().execute().requireBody().toSession()
         }
 
     suspend fun register(
@@ -45,7 +45,7 @@ object AuthRepository {
         ).execute()
         val body = response.requireBody()
         client.saveSessionToken(body.access_token)
-        body.user.toSession(body.driver_status)
+        client.create(AuthApi::class.java).me().execute().requireBody().toSession()
     }
 
     suspend fun restoreSession(context: Context): AuthSession? = withContext(Dispatchers.IO) {
