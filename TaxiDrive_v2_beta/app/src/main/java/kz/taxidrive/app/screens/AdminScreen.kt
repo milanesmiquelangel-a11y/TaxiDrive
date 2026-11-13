@@ -31,9 +31,10 @@ fun AdminScreen(volver: () -> Unit) {
             drivers.forEach { driver ->
                 Card(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                     Column(Modifier.padding(14.dp)) {
-                        Text("\${driver.nombre} \${driver.apellidos}")
-                        Text("Teléfono: \${driver.telefono}")
-                        Text("Aprobado: \${if (driver.aprobado) "Sí" else "No"}")
+                        Text("${driver.nombre} ${driver.apellidos}")
+                        Text("Teléfono: ${driver.telefono}")
+                        val estadoAprobacion = if (driver.aprobado) "Sí" else "No"
+                        Text("Aprobado: $estadoAprobacion")
                         if (!driver.aprobado) {
                             Spacer(Modifier.height(8.dp))
                             Button(onClick = {
