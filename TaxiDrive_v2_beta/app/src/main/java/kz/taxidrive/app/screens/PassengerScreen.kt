@@ -21,7 +21,7 @@ import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PassengerScreen(volver: () -> Unit) {
+fun PassengerScreen(volver: () -> Unit, abrirChat: (Long) -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var origin by remember { mutableStateOf("") }
@@ -202,6 +202,9 @@ fun PassengerScreen(volver: () -> Unit) {
                                             Text("${offer.price_per_passenger_kzt} ₸ por pasajero")
                                             offer.message?.takeIf { it.isNotBlank() }?.let { Text(it) }
                                             Text("Estado: ${offer.status}")
+                                            if (offer.status == "accepted") {
+                                                OutlinedButton(onClick = { abrirChat(offer.id) }, modifier = Modifier.fillMaxWidth()) { Text("Abrir chat") }
+                                            }
                                             if (request.status != "matched" && offer.status == "pending") {
                                                 Button(
                                                     enabled = acceptingOfferId == null,
