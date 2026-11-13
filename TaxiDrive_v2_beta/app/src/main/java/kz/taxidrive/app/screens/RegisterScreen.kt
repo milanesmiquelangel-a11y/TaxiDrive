@@ -38,7 +38,8 @@ fun RegisterScreen(volverLogin: () -> Unit) {
                 RadioButton(tipo == "conductor", { tipo = "conductor" }); Text("Conductor")
             }
             Spacer(Modifier.height(20.dp))
-            @Composable\n            fun field(value: String, label: String, set: (String) -> Unit) {
+            @Composable
+            fun field(value: String, label: String, set: (String) -> Unit) {
                 OutlinedTextField(value, set, label = { Text(label) }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(12.dp))
             }
