@@ -63,7 +63,8 @@ fun NavGraph(
             DriverScreen(
                 volver = {
                     navController.popBackStack()
-                }
+                },
+                abrirChat = { offerId -> navController.navigate("chat/$offerId") }
             )
 
         }
