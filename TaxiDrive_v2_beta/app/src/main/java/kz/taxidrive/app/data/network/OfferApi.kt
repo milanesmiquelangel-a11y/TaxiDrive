@@ -41,6 +41,9 @@ interface OfferApi {
     @GET("requests/{request_id}/offers")
     fun getOffers(@Path("request_id") requestId: Long): Call<OfferListDto>
 
+    @GET("drivers/me/offers")
+    fun getMyOffers(): Call<OfferListDto>
+
     @POST("offers/{offer_id}/accept")
     fun acceptOffer(@Path("offer_id") offerId: Long): Call<AcceptOfferDto>
 }
