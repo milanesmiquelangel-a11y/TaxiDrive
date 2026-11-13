@@ -1,6 +1,6 @@
 package kz.taxidrive.app.backend
 
-import com.google.gson.JsonObject
+import com.google.gson.JsonElement
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -11,7 +11,7 @@ import retrofit2.http.Query
 
 /** Retrofit contract for the staged backend migration. No Firebase repository is replaced here. */
 interface TaxiDriveApi {
-    @POST("auth/register") suspend fun register(@Body body: RegisterRequest): Response<JsonObject>
+    @POST("auth/register") suspend fun register(@Body body: RegisterRequest): Response<JsonElement>
     @POST("auth/login") suspend fun login(@Body body: LoginRequest): Response<JsonObject>
     @GET("auth/me") suspend fun me(@Header("Authorization") bearer: String): Response<JsonObject>
 
