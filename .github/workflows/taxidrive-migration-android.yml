@@ -26,3 +26,10 @@ jobs:
       - name: Build original app debug variant
         working-directory: TaxiDrive_v2_beta
         run: ./gradlew --no-daemon assembleDebug
+      - name: Upload debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: taxidrive-debug-apk
+          path: TaxiDrive_v2_beta/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
