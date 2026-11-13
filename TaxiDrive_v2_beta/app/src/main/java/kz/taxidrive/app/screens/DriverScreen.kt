@@ -6,85 +6,106 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import kz.taxidrive.app.model.TripPost
+import kz.taxidrive.app.data.network.RideRequestDto
 import kz.taxidrive.app.repository.OfferRepository
-import kz.taxidrive.app.repository.UserRepository
+import kz.taxidrive.app.repository.RequestRepository
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DriverScreen(volver: () -> Unit, driverUid: String = "") {
-    var user by remember { mutableStateOf<kz.taxidrive.app.model.User?>(null) }
-    var mensaje by remember { mutableStateOf("") }
+fun DriverScreen(volver: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var requests by remember { mutableStateOf(emptyList<RideRequestDto>()) }
+    var prices by remember { mutableStateOf<Map<Long, String>>(emptyMap()) }
+    var messages by remember { mutableStateOf<Map<Long, String>>(emptyMap()) }
+    var statusText by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(false) }
+    var sendingId by remember { mutableStateOf<Long?>(null) }
 
-    LaunchedEffect(driverUid) {
-        if (driverUid.isNotBlank()) UserRepository.getUser(driverUid) { user = it }
+    fun refresh() {
+        scope.launch {
+            loading = true
+            statusText = ""
+            try {
+                requests = RequestRepository.list(context)
+                error = false
+                if (requests.isEmpty()) statusText = "No hay solicitudes disponibles por ahora."
+            } catch (e: Exception) {
+                statusText = e.message ?: "No se pudieron cargar las solicitudes. Comprueba tu aprobación y activación."
+                error = true
+            } finally {
+                loading = false
+            }
+        }
     }
 
-    val now = System.currentTimeMillis()
-    val acceso = user?.let { it.aprobado && (it.trialUntil > now || it.activationUntil > now) } == true
+    LaunchedEffect(Unit) { refresh() }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("TaxiDrive.kz — Conductor") }) }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(20.dp).verticalScroll(rememberScrollState())) {
-            Button(volver, modifier = Modifier.fillMaxWidth()) { Text("← Volver") }
-            Spacer(Modifier.height(20.dp))
-            when {
-                driverUid.isBlank() -> Text("Inicie sesión con el teléfono del conductor.")
-                user == null -> Text("No se encontró el perfil del conductor.")
-                !user!!.aprobado -> Text("Tu perfil de conductor está pendiente de aprobación.")
-                acceso -> {
-                    var origen by remember { mutableStateOf("") }
-                    var destino by remember { mutableStateOf("") }
-                    var fecha by remember { mutableStateOf("") }
-                    var hora by remember { mutableStateOf("") }
-                    var precio by remember { mutableStateOf("") }
-                    var comentario by remember { mutableStateOf("") }
-
-                    @Composable
-                    fun field(value: String, label: String, set: (String) -> Unit) {
-                        OutlinedTextField(value, set, label = { Text(label) }, modifier = Modifier.fillMaxWidth())
-                        Spacer(Modifier.height(12.dp))
+    Scaffold(topBar = { TopAppBar(title = { Text("Solicitudes disponibles") }) }) { padding ->
+        Column(
+            Modifier.fillMaxSize().padding(padding).padding(16.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            OutlinedButton(onClick = volver, modifier = Modifier.fillMaxWidth()) { Text("← Volver") }
+            Spacer(Modifier.height(10.dp))
+            Text("Propón tu precio por pasajero. No necesitas indicar capacidad ni plazas.", style = MaterialTheme.typography.bodyMedium)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = { refresh() }, enabled = !loading) { Text("Actualizar") }
+            }
+            if (loading) CircularProgressIndicator()
+            if (statusText.isNotBlank()) {
+                Text(statusText, color = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+            }
+            requests.forEach { request ->
+                Card(Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text(request.origin_text + " → " + request.destination_text, style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(5.dp))
+                        Text("Salida: " + request.departure_at)
+                        Text("Pasajeros: " + request.passenger_count)
+                        request.comment?.takeIf { it.isNotBlank() }?.let { Text("Comentario: " + it) }
+                        Spacer(Modifier.height(10.dp))
+                        OutlinedTextField(
+                            value = prices[request.id] ?: "",
+                            onValueChange = { prices = prices + (request.id to it.filter(Char::isDigit).take(9)) },
+                            label = { Text("Tu precio por pasajero (₸)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = messages[request.id] ?: "",
+                            onValueChange = { messages = messages + (request.id to it) },
+                            label = { Text("Mensaje opcional") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Button(
+                            enabled = sendingId == null && (prices[request.id]?.toIntOrNull() ?: 0) > 0,
+                            onClick = {
+                                val price = prices[request.id]?.toIntOrNull() ?: return@Button
+                                scope.launch {
+                                    sendingId = request.id
+                                    try {
+                                        OfferRepository.create(context, request.id, price, messages[request.id])
+                                        statusText = "Oferta enviada correctamente."
+                                        error = false
+                                        requests = requests.filterNot { it.id == request.id }
+                                    } catch (e: Exception) {
+                                        statusText = e.message ?: "No se pudo enviar la oferta."
+                                        error = true
+                                    } finally {
+                                        sendingId = null
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(if (sendingId == request.id) "Enviando..." else "Enviar oferta") }
                     }
-                    Text("Publicar oferta", style = MaterialTheme.typography.headlineSmall)
-                    Spacer(Modifier.height(12.dp))
-                    field(origen, "Origen") { origen = it }
-                    field(destino, "Destino") { destino = it }
-                    field(fecha, "Fecha") { fecha = it }
-                    field(hora, "Hora de salida") { hora = it }
-                    field(precio, "Precio solicitado (₸)") { precio = it }
-                    field(comentario, "Comentarios (opcional)") { comentario = it }
-                    if (mensaje.isNotEmpty()) Text(mensaje)
-                    Button(onClick = {
-                        if (origen.isBlank() || destino.isBlank() || fecha.isBlank() || hora.isBlank() || precio.isBlank()) {
-                            mensaje = "Complete todos los campos obligatorios"
-                        } else {
-                            OfferRepository.add(TripPost(
-                                type = "conductor", origin = origen, destination = destino, date = fecha, time = hora,
-                                price = precio, comment = comentario, phone = user!!.telefono, userId = user!!.uid, status = "activo"
-                            ), {
-                                mensaje = "Oferta publicada correctamente"
-                                origen = ""; destino = ""; fecha = ""; hora = ""; precio = ""; comentario = ""
-                            }, { mensaje = it.message ?: "No se pudo publicar la oferta" })
-                        }
-                    }, modifier = Modifier.fillMaxWidth()) { Text("Publicar oferta") }
-                }
-                user!!.activationPending -> {
-                    Text("Hay una activación de 500 ₸ pendiente de confirmación.")
-                    Spacer(Modifier.height(12.dp))
-                    Text("La activación será válida durante 24 horas desde la confirmación.")
-                }
-                else -> {
-                    Text("Para publicar ofertas necesitas una activación.")
-                    Spacer(Modifier.height(12.dp))
-                    Text("Activación: 500 ₸ • Duración: 24 horas")
-                    Spacer(Modifier.height(16.dp))
-                    Button(onClick = {
-                        UserRepository.requestActivation(user!!.uid, {
-                            mensaje = "Solicitud de activación enviada al administrador."
-                            UserRepository.getUser(user!!.uid) { user = it }
-                        }, { mensaje = it.message ?: "No se pudo solicitar la activación" })
-                    }, modifier = Modifier.fillMaxWidth()) { Text("Solicitar activación — 500 ₸") }
-                    if (mensaje.isNotEmpty()) { Spacer(Modifier.height(12.dp)); Text(mensaje) }
                 }
             }
         }
