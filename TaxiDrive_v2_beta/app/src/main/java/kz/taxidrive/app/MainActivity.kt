@@ -16,6 +16,7 @@ import kz.taxidrive.app.repository.AuthSession
 import kz.taxidrive.app.screens.DriverProfileScreen
 import kz.taxidrive.app.screens.LoginScreen
 import kz.taxidrive.app.screens.RegisterScreen
+import kz.taxidrive.app.screens.PassengerScreen
 import kz.taxidrive.app.ui.theme.TaxiDriveTheme
 import kotlinx.coroutines.launch
 
@@ -70,10 +71,12 @@ fun TaxiDriveApp() {
             }
         )
         "driver_profile" -> DriverProfileScreen(onBack = { screen = "account" })
+        "passenger_requests" -> PassengerScreen(volver = { screen = "account" })
         else -> session?.let { current ->
             AccountHome(
                 session = current,
                 onDriverProfile = { screen = "driver_profile" },
+                onPassengerRequests = { screen = "passenger_requests" },
                 onLogout = {
                     scope.launch {
                         AuthRepository.logout(context)
@@ -91,7 +94,7 @@ fun TaxiDriveApp() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AccountHome(session: AuthSession, onDriverProfile: () -> Unit, onLogout: () -> Unit) {
+private fun AccountHome(session: AuthSession, onDriverProfile: () -> Unit, onPassengerRequests: () -> Unit, onLogout: () -> Unit) {
     val roleLabel = when (session.role) {
         "passenger" -> "Pasajero"
         "driver" -> "Conductor"
@@ -132,10 +135,13 @@ private fun AccountHome(session: AuthSession, onDriverProfile: () -> Unit, onLog
                         Text("Completar perfil del vehículo y fotografías")
                     }
                 }
-                "passenger" -> Text(
-                    "Tu cuenta de pasajero está autenticada. El módulo de solicitudes se conectará al backend en la siguiente etapa.",
-                    style = MaterialTheme.typography.bodyLarge
-                )
+                "passenger" -> {
+                    Text("Publica una solicitud y recibe propuestas de conductores.", style = MaterialTheme.typography.bodyLarge)
+                    Spacer(Modifier.height(12.dp))
+                    Button(onClick = onPassengerRequests, modifier = Modifier.fillMaxWidth()) {
+                        Text("Solicitar un viaje")
+                    }
+                }
                 "admin" -> Text(
                     "Sesión administrativa autenticada. El panel de administración se conectará al backend en su etapa correspondiente.",
                     style = MaterialTheme.typography.bodyLarge
