@@ -1,6 +1,10 @@
 package kz.taxidrive.qa
 
 import android.os.Bundle
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -15,6 +19,11 @@ import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import java.io.File
+import java.io.FileOutputStream
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -22,6 +31,10 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.PUT
+import retrofit2.http.Multipart
+import retrofit2.http.Part
+import retrofit2.http.Path
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
@@ -52,6 +65,8 @@ private interface TaxiDriveQaApi {
     ): Response<JsonElement>
     @GET("auth/me") suspend fun me(@Header("Authorization") bearer: String): Response<JsonElement>
     @GET("drivers/me") suspend fun driverProfile(@Header("Authorization") bearer: String): Response<JsonElement>
+    @PUT("drivers/me") suspend fun updateDriverProfile(@Header("Authorization") bearer: String, @Body body: DriverProfileBody): Response<JsonElement>
+    @Multipart @POST("drivers/me/documents/{documentType}") suspend fun uploadDriverDocument(@Header("Authorization") bearer: String, @Path("documentType") documentType: String, @Part file: MultipartBody.Part): Response<JsonElement>
     @GET("drivers/me/activation") suspend fun driverActivation(@Header("Authorization") bearer: String): Response<JsonElement>
     @GET("requests") suspend fun availableRequests(@Header("Authorization") bearer: String): Response<JsonElement>
     @GET("requests/{requestId}") suspend fun request(@Header("Authorization") bearer: String, @retrofit2.http.Path("requestId") requestId: Long): Response<JsonElement>
@@ -59,7 +74,7 @@ private interface TaxiDriveQaApi {
     @GET("requests") suspend fun myRequests(@Header("Authorization") bearer: String): Response<JsonElement>
 }
 
-private data class DriverOfferBody(
+private data class DriverProfileBody(\n    @SerializedName("vehicle_make") val vehicleMake: String,\n    @SerializedName("vehicle_model") val vehicleModel: String,\n    @SerializedName("vehicle_year") val vehicleYear: Int,\n    @SerializedName("license_plate") val licensePlate: String\n)\n\nprivate data class DriverOfferBody(
     @SerializedName("request_id") val requestId: Long,
     @SerializedName("price_per_passenger_kzt") val pricePerPassengerKzt: Long,
     @SerializedName("available_seats") val availableSeats: Int,
@@ -89,7 +104,7 @@ class MainActivity : ComponentActivity() {
                 var password by remember { mutableStateOf("") }
                 var role by remember { mutableStateOf("passenger") }
                 var accountRole by remember { mutableStateOf<String?>(null) }
-                var driverProfileJson by remember { mutableStateOf("") }
+                var driverProfileJson by remember { mutableStateOf("") }\n                var vehicleMake by remember { mutableStateOf("") }\n                var vehicleModel by remember { mutableStateOf("") }\n                var vehicleYear by remember { mutableStateOf("") }\n                var licensePlate by remember { mutableStateOf("") }\n                var frontPhotoUri by remember { mutableStateOf<Uri?>(null) }\n                var steeringPhotoUri by remember { mutableStateOf<Uri?>(null) }\n                var driverProfileLoaded by remember { mutableStateOf(false) }
                 var activationJson by remember { mutableStateOf("") }
                 var availableRequestsJson by remember { mutableStateOf("") }
                 var offerRequestId by remember { mutableStateOf("3") }
@@ -106,7 +121,7 @@ class MainActivity : ComponentActivity() {
                 var passengerCount by remember { mutableStateOf("1") }
                 var comment by remember { mutableStateOf("") }
                 var requestsJson by remember { mutableStateOf("") }
-                val scope = rememberCoroutineScope()
+                val scope = rememberCoroutineScope()\n                val context = LocalContext.current\n                val frontPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { frontPhotoUri = it }\n                val steeringPhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { steeringPhotoUri = it }
 
                 suspend fun acceptAuthResponse(response: Response<JsonElement>, action: String) {
                     if (!response.isSuccessful) {
@@ -253,7 +268,67 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }, modifier = Modifier.fillMaxWidth()
                                 ) { Text("Consultar mi perfil y aprobación") }
-                                if (driverProfileJson.isNotBlank()) Text("Perfil y aprobación: $driverProfileJson")
+                                if (driverProfileJson.isNotBlank()) Text("Estado del perfil: ${if (driverProfileJson.contains("\\"approval_status\\":\\"approved\\"")) "Aprobado" else "Pendiente de completar o revisar"}")
+                                Text("Completa los datos obligatorios del vehículo", style = MaterialTheme.typography.titleMedium)
+                                OutlinedTextField(vehicleMake, { vehicleMake = it }, label = { Text("Marca del vehículo") }, modifier = Modifier.fillMaxWidth())
+                                OutlinedTextField(vehicleModel, { vehicleModel = it }, label = { Text("Modelo") }, modifier = Modifier.fillMaxWidth())
+                                OutlinedTextField(vehicleYear, { vehicleYear = it.filter(Char::isDigit).take(4) }, label = { Text("Año") }, modifier = Modifier.fillMaxWidth())
+                                OutlinedTextField(licensePlate, { licensePlate = it.uppercase() }, label = { Text("Matrícula") }, modifier = Modifier.fillMaxWidth())
+                                Button(
+                                    enabled = !busy && vehicleMake.isNotBlank() && vehicleModel.isNotBlank() && (vehicleYear.toIntOrNull() ?: 0) in 1950..2035 && licensePlate.isNotBlank(),
+                                    onClick = {
+                                        scope.launch {
+                                            busy = true
+                                            try {
+                                                val response = api.updateDriverProfile("Bearer $token", DriverProfileBody(vehicleMake.trim(), vehicleModel.trim(), vehicleYear.toInt(), licensePlate.trim()))
+                                                status = if (response.isSuccessful) {
+                                                    driverProfileJson = response.body()?.toString().orEmpty()
+                                                    driverProfileLoaded = true
+                                                    "Datos del vehículo guardados. Ahora debes subir las dos fotografías obligatorias."
+                                                } else "No se pudieron guardar los datos (HTTP ${response.code()}): ${response.errorBody()?.string()?.take(400).orEmpty()}"
+                                            } catch (e: Exception) { status = "Error al guardar perfil: ${e.message ?: "desconocido"}" }
+                                            busy = false
+                                        }
+                                    }, modifier = Modifier.fillMaxWidth()
+                                ) { Text("Guardar datos del vehículo") }
+                                Text("Fotografías obligatorias", style = MaterialTheme.typography.titleMedium)
+                                OutlinedButton(enabled = !busy, onClick = { frontPhotoPicker.launch("image/*") }, modifier = Modifier.fillMaxWidth()) {
+                                    Text(if (frontPhotoUri == null) "Seleccionar foto frontal con matrícula" else "Foto frontal seleccionada")
+                                }
+                                OutlinedButton(enabled = !busy, onClick = { steeringPhotoPicker.launch("image/*") }, modifier = Modifier.fillMaxWidth()) {
+                                    Text(if (steeringPhotoUri == null) "Seleccionar foto del volante" else "Foto del volante seleccionada")
+                                }
+                                Button(
+                                    enabled = !busy && frontPhotoUri != null && steeringPhotoUri != null,
+                                    onClick = {
+                                        scope.launch {
+                                            busy = true
+                                            try {
+                                                suspend fun upload(uri: Uri, type: String): Response<JsonElement> {
+                                                    val mime = context.contentResolver.getType(uri) ?: "image/jpeg"
+                                                    val ext = when (mime) { "image/png" -> ".png"; "image/webp" -> ".webp"; else -> ".jpg" }
+                                                    val file = File(context.cacheDir, "driver_${type}$ext")
+                                                    context.contentResolver.openInputStream(uri).use { input ->
+                                                        requireNotNull(input) { "No se pudo leer la imagen seleccionada" }
+                                                        FileOutputStream(file).use { output -> input.copyTo(output) }
+                                                    }
+                                                    val part = MultipartBody.Part.createFormData("file", file.name, file.asRequestBody(mime.toMediaTypeOrNull()))
+                                                    return api.uploadDriverDocument("Bearer $token", type, part)
+                                                }
+                                                val front = upload(requireNotNull(frontPhotoUri), "front")
+                                                if (!front.isSuccessful) {
+                                                    status = "Falló la foto frontal (HTTP ${front.code()}): ${front.errorBody()?.string()?.take(300).orEmpty()}"
+                                                } else {
+                                                    val steering = upload(requireNotNull(steeringPhotoUri), "steering_wheel")
+                                                    status = if (steering.isSuccessful) "Las dos fotografías se subieron correctamente. El perfil queda pendiente de aprobación administrativa." else "Falló la foto del volante (HTTP ${steering.code()}): ${steering.errorBody()?.string()?.take(300).orEmpty()}"
+                                                }
+                                                val p = api.driverProfile("Bearer $token")
+                                                if (p.isSuccessful) driverProfileJson = p.body()?.toString().orEmpty()
+                                            } catch (e: Exception) { status = "Error al subir fotografías: ${e.message ?: "desconocido"}" }
+                                            busy = false
+                                        }
+                                    }, modifier = Modifier.fillMaxWidth()
+                                ) { Text("Subir las dos fotografías") }
                                 if (activationJson.isNotBlank()) Text("Activación: $activationJson")
                                 OutlinedButton(
                                     enabled = !busy,
