@@ -9,6 +9,7 @@ import kz.taxidrive.app.screens.DriverScreen
 import kz.taxidrive.app.screens.LoginScreen
 import kz.taxidrive.app.screens.PassengerScreen
 import kz.taxidrive.app.screens.RegisterScreen
+import kz.taxidrive.app.screens.OfferChatScreen
 
 @Composable
 fun NavGraph(
@@ -64,6 +65,11 @@ fun NavGraph(
                 }
             )
 
+        }
+
+        composable(Routes.CHAT) { entry ->
+            val offerId = entry.arguments?.getString("offerId")?.toLongOrNull() ?: 0L
+            OfferChatScreen(offerId = offerId, volver = { navController.popBackStack() })
         }
 
         composable(Routes.ADMIN) {
