@@ -128,7 +128,7 @@ object PassengerApiRepository {
             try {
                 val token = AuthRepository.accessToken(context)
                     ?: throw IllegalStateException("La sesión ha caducado. Inicie sesión nuevamente.")
-                connection = (URL("$"+"BASE_URL/offers/$"+"offerId/accept").openConnection() as HttpURLConnection).apply {
+                connection = (URL("$BASE_URL/offers/$offerId/accept").openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     connectTimeout = 15000
                     readTimeout = 15000
