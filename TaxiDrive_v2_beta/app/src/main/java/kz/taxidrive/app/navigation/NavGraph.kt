@@ -8,6 +8,7 @@ import kz.taxidrive.app.screens.AdminScreen
 import kz.taxidrive.app.screens.DriverScreen
 import kz.taxidrive.app.screens.LoginScreen
 import kz.taxidrive.app.screens.PassengerScreen
+import kz.taxidrive.app.screens.OfferChatScreen
 import kz.taxidrive.app.screens.RegisterScreen
 
 @Composable
@@ -23,7 +24,14 @@ fun NavGraph(navController: NavHostController) {
             RegisterScreen(volverLogin = { navController.popBackStack() })
         }
         composable(Routes.PASSENGER) {
-            PassengerScreen(volver = { navController.popBackStack() })
+            PassengerScreen(
+                volver = { navController.popBackStack() },
+                abrirChat = { offerId -> navController.navigate("offer_chat/$offerId") }
+            )
+        }
+        composable("offer_chat/{offerId}") { entry ->
+            val offerId = entry.arguments?.getString("offerId")?.toIntOrNull() ?: 0
+            OfferChatScreen(offerId = offerId, volver = { navController.popBackStack() })
         }
         composable(Routes.DRIVER) {
             DriverScreen(volver = { navController.popBackStack() })
