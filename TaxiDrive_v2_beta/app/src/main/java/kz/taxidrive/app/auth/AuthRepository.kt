@@ -51,6 +51,45 @@ object AuthRepository {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(TOKEN_KEY).apply()
     }
 
+    fun getMe(
+        context: Context,
+        onSuccess: (JSONObject) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        Thread {
+            var connection: HttpURLConnection? = null
+            try {
+                val token = accessToken(context)
+                    ?: throw IllegalStateException("No hay una sesión activa")
+                connection = (URL(BASE_URL + "/auth/me").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 15000
+                    readTimeout = 15000
+                    setRequestProperty("Accept", "application/json")
+                    setRequestProperty("Authorization", "Bearer $token")
+                }
+                val code = connection.responseCode
+                val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+                val responseText = stream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() }.orEmpty()
+                val response = if (responseText.isNotBlank()) JSONObject(responseText) else JSONObject()
+                if (code in 200..299) {
+                    android.os.Handler(context.mainLooper).post { onSuccess(response) }
+                } else {
+                    if (code == 401 || code == 403) clearSession(context)
+                    android.os.Handler(context.mainLooper).post {
+                        onError("No se pudo verificar la sesión (HTTP $code). Vuelva a iniciar sesión.")
+                    }
+                }
+            } catch (e: Exception) {
+                android.os.Handler(context.mainLooper).post {
+                    onError("No se pudo verificar la sesión. Compruebe su conexión e inténtelo de nuevo.")
+                }
+            } finally {
+                connection?.disconnect()
+            }
+        }.start()
+    }
+
     private fun post(
         context: Context,
         path: String,
