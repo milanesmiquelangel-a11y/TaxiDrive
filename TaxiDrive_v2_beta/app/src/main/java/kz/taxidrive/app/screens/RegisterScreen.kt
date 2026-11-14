@@ -112,7 +112,7 @@ fun RegisterScreen(volverLogin: () -> Unit) {
                     telefono.length != 10 -> mensaje = "Introduzca los 10 dígitos del teléfono después de +7"
                     contrasena.length < 10 -> mensaje = "La contraseña debe tener al menos 10 caracteres"
                     tipo == "conductor" && (marca.isBlank() || modelo.isBlank()) -> mensaje = "Complete la marca y el modelo del vehículo"
-                    tipo == "conductor" && anio.toIntOrNull() !in 1980..2100 -> mensaje = "Introduzca un año válido entre 1980 y 2100"
+                    tipo == "conductor" && anio.toIntOrNull()?.let { it !in 1980..2100 } != false -> mensaje = "Introduzca un año válido entre 1980 y 2100"
                     tipo == "conductor" && !matricula.matches(Regex("[0-9]{3}[A-Z]{3}[0-9]{2}")) -> mensaje = "La matrícula debe tener el formato 123ABC45"
                     tipo == "conductor" && fotoFrontal == null -> mensaje = "Añada la foto frontal del vehículo"
                     tipo == "conductor" && fotoVolante == null -> mensaje = "Añada la foto del volante"
