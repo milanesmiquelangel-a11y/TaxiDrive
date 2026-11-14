@@ -18,7 +18,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PassengerScreen(volver: () -> Unit) {
+fun PassengerScreen(volver: () -> Unit, abrirChat: (Int) -> Unit) {
     val context = LocalContext.current
     var origen by remember { mutableStateOf("") }
     var destino by remember { mutableStateOf("") }
@@ -303,6 +303,15 @@ fun PassengerScreen(volver: () -> Unit) {
                                     else -> "Pendiente"
                                 }
                                 Text("Estado: $status", style = MaterialTheme.typography.bodySmall)
+
+                                if (oferta.optString("status") == "accepted") {
+                                    Button(
+                                        onClick = { abrirChat(oferta.optInt("id", 0)) },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text("Abrir chat")
+                                    }
+                                }
 
                                 if (oferta.optString("status") == "pending") {
                                     Spacer(Modifier.height(8.dp))
