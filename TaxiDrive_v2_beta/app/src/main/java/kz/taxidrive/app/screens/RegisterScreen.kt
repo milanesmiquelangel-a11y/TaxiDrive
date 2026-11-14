@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import kz.taxidrive.app.model.User
 import kz.taxidrive.app.repository.UserRepository
@@ -18,6 +19,7 @@ fun RegisterScreen(volverLogin: () -> Unit) {
     var nombre by remember { mutableStateOf("") }
     var apellidos by remember { mutableStateOf("") }
     var telefono by remember { mutableStateOf("") }
+    var contrasena by remember { mutableStateOf("") }
     var marca by remember { mutableStateOf("") }
     var modelo by remember { mutableStateOf("") }
     var color by remember { mutableStateOf("") }
@@ -46,6 +48,14 @@ fun RegisterScreen(volverLogin: () -> Unit) {
             field(nombre, "Nombre") { nombre = it }
             field(apellidos, "Apellidos") { apellidos = it }
             field(telefono, "Teléfono") { telefono = it }
+            OutlinedTextField(
+                value = contrasena,
+                onValueChange = { contrasena = it },
+                label = { Text("Contraseña") },
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(12.dp))
             if (tipo == "conductor") {
                 Text("Datos del vehículo")
                 Spacer(Modifier.height(12.dp))
@@ -60,8 +70,8 @@ fun RegisterScreen(volverLogin: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             Button(
                 onClick = {
-                    if (nombre.isBlank() || apellidos.isBlank() || telefono.isBlank()) {
-                        mensaje = "Complete todos los campos obligatorios"; return@Button
+                    if (nombre.isBlank() || apellidos.isBlank() || telefono.isBlank() || contrasena.length < 10) {
+                        mensaje = "Complete los campos y use una contraseña de al menos 10 caracteres"; return@Button
                     }
                     val user = User(
                         uid = telefono.trim(), nombre = nombre, apellidos = apellidos,
