@@ -35,6 +35,10 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Make Gradle wrapper executable
+        working-directory: TaxiDrive_v2_beta
+        run: chmod +x ./gradlew
+
       - name: Compile Kotlin
         working-directory: TaxiDrive_v2_beta
         run: ./gradlew :app:compileDebugKotlin --no-daemon
