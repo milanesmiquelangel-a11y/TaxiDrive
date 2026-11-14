@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -13,6 +14,7 @@ fun LoginScreen(
     loginCorrecto: (String) -> Unit
 ) {
     var telefono by remember { mutableStateOf("") }
+    var contrasena by remember { mutableStateOf("") }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Iniciar sesión") }) }) { padding ->
         Column(
@@ -25,9 +27,16 @@ fun LoginScreen(
                 label = { Text("Teléfono") },
                 modifier = Modifier.fillMaxWidth()
             )
+            OutlinedTextField(
+                value = contrasena,
+                onValueChange = { contrasena = it },
+                label = { Text("Contraseña") },
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth()
+            )
             Spacer(modifier = Modifier.height(20.dp))
             Button(
-                onClick = { if (telefono.isNotBlank()) loginCorrecto(telefono.trim()) },
+                onClick = { if (telefono.isNotBlank() && contrasena.isNotBlank()) loginCorrecto(telefono.trim()) },
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Entrar") }
             Spacer(modifier = Modifier.height(12.dp))
