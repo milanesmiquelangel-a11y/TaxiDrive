@@ -10,9 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kz.taxidrive.app.screens.AdminScreen
 import kz.taxidrive.app.screens.DriverScreen
 import kz.taxidrive.app.screens.LoginScreen
@@ -22,12 +20,9 @@ import kz.taxidrive.app.auth.AuthRepository
 import kz.taxidrive.app.ui.theme.TaxiDriveTheme
 
 class MainActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         enableEdgeToEdge()
-
         setContent {
             TaxiDriveTheme {
                 TaxiDriveApp()
@@ -43,6 +38,16 @@ fun TaxiDriveApp() {
     var telefonoActual by remember { mutableStateOf("") }
     var perfilRecuperacion by remember { mutableStateOf<org.json.JSONObject?>(null) }
     var mensajeEstado by remember { mutableStateOf("") }
+
+    // Each account stays in the role returned by the authenticated backend.
+    // Leaving a role screen ends the session instead of exposing a role chooser.
+    val cerrarSesion: () -> Unit = {
+        AuthRepository.clearSession(context)
+        telefonoActual = ""
+        perfilRecuperacion = null
+        mensajeEstado = ""
+        pantalla = "login"
+    }
 
     when (pantalla) {
         "login" -> LoginScreen(
@@ -76,17 +81,21 @@ fun TaxiDriveApp() {
                             pantalla = "error_conductor"
                         })
                     }
-                    else -> pantalla = "login"
+                    else -> {
+                        AuthRepository.clearSession(context)
+                        telefonoActual = ""
+                        pantalla = "login"
+                    }
                 }
             }
         )
 
         "registro" -> RegisterScreen(
-            volverLogin = { pantalla = "login" }
+            volverLogin = cerrarSesion
         )
 
         "recuperar_perfil" -> RegisterScreen(
-            volverLogin = { pantalla = "login" },
+            volverLogin = cerrarSesion,
             recoveryMode = true,
             existingProfile = perfilRecuperacion
         )
@@ -109,144 +118,22 @@ fun TaxiDriveApp() {
         ) {
             Text(mensajeEstado)
             Spacer(Modifier.height(16.dp))
-            Button(onClick = { pantalla = "login" }, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = cerrarSesion, modifier = Modifier.fillMaxWidth()) {
                 Text("Volver al inicio de sesión")
             }
         }
 
-        "inicio" -> PantallaInicio(
-            abrirPasajero = { pantalla = "pasajero" },
-            abrirConductor = { pantalla = "conductor" },
-            abrirAdministrador = { pantalla = "admin" }
-        )
-
         "pasajero" -> PassengerScreen(
-            volver = { pantalla = "inicio" }
+            volver = cerrarSesion
         )
 
         "conductor" -> DriverScreen(
-            volver = { pantalla = "inicio" },
+            volver = cerrarSesion,
             driverUid = telefonoActual
         )
 
         "admin" -> AdminScreen(
-            volver = { pantalla = "inicio" }
+            volver = cerrarSesion
         )
     }
-}
-
-@Composable
-fun PantallaInicio(
-
-    abrirPasajero: () -> Unit,
-
-    abrirConductor: () -> Unit,
-
-    abrirAdministrador: () -> Unit
-
-) {
-
-    Surface(
-        modifier = Modifier.fillMaxSize()
-    ) {
-
-        Column(
-
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-
-            horizontalAlignment = Alignment.CenterHorizontally,
-
-            verticalArrangement = Arrangement.Center
-
-        ) {
-
-            Text(
-
-                text = "🚖 TaxiDrive.kz",
-
-                fontSize = 34.sp,
-
-                fontWeight = FontWeight.Bold
-
-            )
-
-            Spacer(modifier = Modifier.height(40.dp))
-
-            Button(
-
-                onClick = abrirPasajero,
-
-                modifier = Modifier.fillMaxWidth()
-
-            ) {
-
-                Text("Soy pasajero")
-
-            }
-
-            Spacer(modifier = Modifier.height(15.dp))
-
-            Button(
-
-                onClick = abrirConductor,
-
-                modifier = Modifier.fillMaxWidth()
-
-            ) {
-
-                Text("Soy conductor")
-
-            }
-
-            Spacer(modifier = Modifier.height(15.dp))
-
-            Button(
-
-                onClick = abrirAdministrador,
-
-                modifier = Modifier.fillMaxWidth()
-
-            ) {
-
-                Text("Administrador")
-
-            }
-
-            Spacer(modifier = Modifier.height(40.dp))
-
-            Text("Idioma")
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Button(
-                onClick = { },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("🇪🇸 Español")
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
-                onClick = { },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("🇷🇺 Русский")
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
-                onClick = { },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("🇬🇧 English")
-            }
-
-        }
-
-    }
-
 }
