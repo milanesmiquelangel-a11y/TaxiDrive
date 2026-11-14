@@ -1,4 +1,6 @@
 package kz.taxidrive.app.screens
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -26,6 +28,10 @@ fun RegisterScreen(volverLogin: () -> Unit) {
     var privacidadAceptada by remember { mutableStateOf(false) }
     var declaracionConductorAceptada by remember { mutableStateOf(false) }
     var mensaje by remember { mutableStateOf("") }; var cargando by remember { mutableStateOf(false) }
+    var fotoFrontal by remember { mutableStateOf<android.net.Uri?>(null) }
+    var fotoVolante by remember { mutableStateOf<android.net.Uri?>(null) }
+    val elegirFotoFrontal = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { fotoFrontal = it }
+    val elegirFotoVolante = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { fotoVolante = it }
     val telefonoCompleto = "+7$telefono"
     Scaffold(topBar = { TopAppBar(title = { Text("Crear cuenta") }) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(20.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -80,6 +86,15 @@ fun RegisterScreen(volverLogin: () -> Unit) {
                 )
                 Spacer(Modifier.height(12.dp))
                 field(licencia, "Licencia") { licencia = it }
+                OutlinedButton(onClick = { elegirFotoFrontal.launch("image/*") }, modifier = Modifier.fillMaxWidth(), enabled = !cargando) {
+                    Text(if (fotoFrontal == null) "Añadir foto frontal del vehículo" else "Foto frontal seleccionada")
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = { elegirFotoVolante.launch("image/*") }, modifier = Modifier.fillMaxWidth(), enabled = !cargando) {
+                    Text(if (fotoVolante == null) "Añadir foto del volante" else "Foto del volante seleccionada")
+                }
+                Text("JPG, PNG o WEBP; máximo 5 MB por imagen.", style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(declaracionConductorAceptada, { declaracionConductorAceptada = it }, enabled = !cargando)
                     Text("Confirmo que tengo 18 años o más, licencia y seguro vigentes, y que mi vehículo está en condiciones adecuadas.")
@@ -96,7 +111,11 @@ fun RegisterScreen(volverLogin: () -> Unit) {
                     nombre.isBlank() || apellidos.isBlank() -> mensaje = "Complete todos los campos obligatorios"
                     telefono.length != 10 -> mensaje = "Introduzca los 10 dígitos del teléfono después de +7"
                     contrasena.length < 10 -> mensaje = "La contraseña debe tener al menos 10 caracteres"
+                    tipo == "conductor" && (marca.isBlank() || modelo.isBlank()) -> mensaje = "Complete la marca y el modelo del vehículo"
+                    tipo == "conductor" && anio.toIntOrNull() !in 1980..2100 -> mensaje = "Introduzca un año válido entre 1980 y 2100"
                     tipo == "conductor" && !matricula.matches(Regex("[0-9]{3}[A-Z]{3}[0-9]{2}")) -> mensaje = "La matrícula debe tener el formato 123ABC45"
+                    tipo == "conductor" && fotoFrontal == null -> mensaje = "Añada la foto frontal del vehículo"
+                    tipo == "conductor" && fotoVolante == null -> mensaje = "Añada la foto del volante"
                     !privacidadAceptada -> mensaje = "Debe aceptar la Política de Privacidad"
                     tipo == "conductor" && !declaracionConductorAceptada -> mensaje = "Debe aceptar la declaración del conductor"
                     else -> {
@@ -104,7 +123,41 @@ fun RegisterScreen(volverLogin: () -> Unit) {
                         AuthRepository.register(context, telefonoCompleto, "$nombre $apellidos", contrasena,
                             if (tipo == "conductor") "driver" else "passenger", privacidadAceptada,
                             declaracionConductorAceptada, {
-                                cargando = false; mensaje = "Cuenta creada correctamente. Ya puede iniciar sesión."; volverLogin()
+                                if (tipo == "pasajero") {
+                                    cargando = false
+                                    mensaje = "Cuenta creada correctamente. Ya puede iniciar sesión."
+                                    volverLogin()
+                                } else {
+                                    val frontal = fotoFrontal
+                                    val volante = fotoVolante
+                                    if (frontal == null || volante == null) {
+                                        cargando = false
+                                        mensaje = "La cuenta se creó, pero faltan las fotografías. Inicie sesión para continuar con el envío."
+                                    } else {
+                                        AuthRepository.uploadDriverDocument(context, "front", frontal, { frontId ->
+                                            AuthRepository.uploadDriverDocument(context, "steering_wheel", volante, { wheelId ->
+                                                AuthRepository.submitDriverProfile(
+                                                    context, marca, modelo, anio.toInt(), matricula, frontId, wheelId,
+                                                    {
+                                                        cargando = false
+                                                        mensaje = "Cuenta y solicitud de conductor enviadas. Queda pendiente la aprobación del administrador."
+                                                        volverLogin()
+                                                    },
+                                                    { error ->
+                                                        cargando = false
+                                                        mensaje = "La cuenta se creó, pero no se pudo guardar el perfil del vehículo: $error"
+                                                    }
+                                                )
+                                            }, { error ->
+                                                cargando = false
+                                                mensaje = "La cuenta se creó, pero no se pudo subir la foto del volante: $error"
+                                            })
+                                        }, { error ->
+                                            cargando = false
+                                            mensaje = "La cuenta se creó, pero no se pudo subir la foto frontal: $error"
+                                        })
+                                    }
+                                }
                             }, { error -> cargando = false; mensaje = error })
                     }
                 }
