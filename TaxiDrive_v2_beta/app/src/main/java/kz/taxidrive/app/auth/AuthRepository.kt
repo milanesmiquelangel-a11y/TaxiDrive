@@ -90,6 +90,136 @@ object AuthRepository {
         }.start()
     }
 
+
+    fun uploadDriverDocument(
+        context: Context,
+        documentType: String,
+        uri: android.net.Uri,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        Thread {
+            var connection: HttpURLConnection? = null
+            try {
+                val token = accessToken(context) ?: throw IllegalStateException("No hay una sesión activa")
+                val mime = context.contentResolver.getType(uri)?.lowercase()
+                    ?: throw IllegalArgumentException("No se pudo identificar el formato de la imagen")
+                if (mime !in setOf("image/jpeg", "image/png", "image/webp")) {
+                    throw IllegalArgumentException("Use una imagen JPG, PNG o WEBP")
+                }
+                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    ?: throw IllegalArgumentException("No se pudo leer la imagen")
+                if (bytes.isEmpty() || bytes.size > 5 * 1024 * 1024) {
+                    throw IllegalArgumentException("La imagen debe pesar como máximo 5 MB")
+                }
+                val extension = when (mime) {
+                    "image/jpeg" -> "jpg"
+                    "image/png" -> "png"
+                    else -> "webp"
+                }
+                val boundary = "TaxiDriveBoundary" + System.currentTimeMillis()
+                connection = (URL(BASE_URL + "/drivers/me/documents/" + documentType).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 20000
+                    readTimeout = 20000
+                    doOutput = true
+                    setRequestProperty("Authorization", "Bearer $token")
+                    setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+                    setRequestProperty("Accept", "application/json")
+                }
+                connection.outputStream.use { output ->
+                    output.write("--$boundary\\r\\n".toByteArray(StandardCharsets.UTF_8))
+                    output.write("Content-Disposition: form-data; name=\\"file\\"; filename=\\"document.$extension\\"\\r\\n".toByteArray(StandardCharsets.UTF_8))
+                    output.write("Content-Type: $mime\\r\\n\\r\\n".toByteArray(StandardCharsets.UTF_8))
+                    output.write(bytes)
+                    output.write("\\r\\n--$boundary--\\r\\n".toByteArray(StandardCharsets.UTF_8))
+                }
+                val code = connection.responseCode
+                val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+                val responseText = stream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() }.orEmpty()
+                val response = if (responseText.isNotBlank()) JSONObject(responseText) else JSONObject()
+                if (code in 200..299) {
+                    val id = response.optString("document_id")
+                    if (id.isBlank()) throw IllegalStateException("El servidor no confirmó el documento")
+                    android.os.Handler(context.mainLooper).post { onSuccess(id) }
+                } else {
+                    val detail = response.optString("detail", "No se pudo subir la imagen (HTTP $code)")
+                    android.os.Handler(context.mainLooper).post { onError(detail) }
+                }
+            } catch (e: Exception) {
+                android.os.Handler(context.mainLooper).post {
+                    onError(e.message ?: "No se pudo subir la imagen. Inténtelo de nuevo.")
+                }
+            } finally {
+                connection?.disconnect()
+            }
+        }.start()
+    }
+
+    fun submitDriverProfile(
+        context: Context,
+        vehicleMake: String,
+        vehicleModel: String,
+        vehicleYear: Int,
+        licensePlate: String,
+        frontPhotoId: String,
+        steeringWheelPhotoId: String,
+        onSuccess: (JSONObject) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val body = JSONObject()
+            .put("vehicle_make", vehicleMake.trim())
+            .put("vehicle_model", vehicleModel.trim())
+            .put("vehicle_year", vehicleYear)
+            .put("license_plate", licensePlate.trim())
+            .put("front_photo_url", frontPhotoId)
+            .put("steering_wheel_photo_url", steeringWheelPhotoId)
+        put(context, "/drivers/me", body, onSuccess, onError)
+    }
+
+    private fun put(
+        context: Context,
+        path: String,
+        body: JSONObject,
+        onSuccess: (JSONObject) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        Thread {
+            var connection: HttpURLConnection? = null
+            try {
+                val token = accessToken(context) ?: throw IllegalStateException("No hay una sesión activa")
+                connection = (URL(BASE_URL + path).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "PUT"
+                    connectTimeout = 15000
+                    readTimeout = 15000
+                    doOutput = true
+                    setRequestProperty("Authorization", "Bearer $token")
+                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                    setRequestProperty("Accept", "application/json")
+                }
+                connection.outputStream.use {
+                    it.write(body.toString().toByteArray(StandardCharsets.UTF_8))
+                }
+                val code = connection.responseCode
+                val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+                val responseText = stream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() }.orEmpty()
+                val response = if (responseText.isNotBlank()) JSONObject(responseText) else JSONObject()
+                if (code in 200..299) {
+                    android.os.Handler(context.mainLooper).post { onSuccess(response) }
+                } else {
+                    val detail = response.optString("detail", "No se pudo guardar el perfil (HTTP $code)")
+                    android.os.Handler(context.mainLooper).post { onError(detail) }
+                }
+            } catch (e: Exception) {
+                android.os.Handler(context.mainLooper).post {
+                    onError(e.message ?: "No se pudo conectar con TaxiDrive.")
+                }
+            } finally {
+                connection?.disconnect()
+            }
+        }.start()
+    }
+
     private fun post(
         context: Context,
         path: String,
