@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kz.taxidrive.app.repository.PassengerApiRepository
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -27,6 +28,31 @@ fun PassengerScreen(volver: () -> Unit) {
     var comentario by remember { mutableStateOf("") }
     var mensaje by remember { mutableStateOf("") }
     var enviando by remember { mutableStateOf(false) }
+    var requestId by remember { mutableIntStateOf(0) }
+    var ofertas by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var cargandoOfertas by remember { mutableStateOf(false) }
+    var errorOfertas by remember { mutableStateOf("") }
+
+    val cargarOfertas: (Int) -> Unit = { id ->
+        if (!cargandoOfertas && id > 0) {
+            cargandoOfertas = true
+            errorOfertas = ""
+            PassengerApiRepository.getRequestOffers(
+                context = context,
+                requestId = id,
+                onSuccess = { items ->
+                    ofertas = (0 until items.length()).mapNotNull { index ->
+                        items.optJSONObject(index)
+                    }
+                    cargandoOfertas = false
+                },
+                onFailure = { error ->
+                    errorOfertas = error
+                    cargandoOfertas = false
+                }
+            )
+        }
+    }
 
     val dateLabel = fechaSeleccionada?.let {
         SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(it.time)
@@ -139,7 +165,14 @@ fun PassengerScreen(volver: () -> Unit) {
             Spacer(Modifier.height(20.dp))
 
             if (mensaje.isNotBlank()) {
-                Text(mensaje, color = if (mensaje.startsWith("Solicitud publicada")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                Text(
+                    mensaje,
+                    color = if (mensaje.startsWith("Solicitud publicada")) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    }
+                )
                 Spacer(Modifier.height(12.dp))
             }
 
@@ -174,13 +207,20 @@ fun PassengerScreen(volver: () -> Unit) {
                                 comment = comentario,
                                 onSuccess = { response ->
                                     enviando = false
-                                    mensaje = "Solicitud publicada correctamente (#" + response.optInt("id") + ")."
+                                    requestId = response.optInt("id", 0)
+                                    ofertas = emptyList()
+                                    mensaje = "Solicitud publicada correctamente (#$requestId)."
                                     origen = ""
                                     destino = ""
                                     fechaSeleccionada = null
                                     horaSeleccionada = null
                                     pasajeros = 1
                                     comentario = ""
+                                    if (requestId > 0) {
+                                        cargarOfertas(requestId)
+                                    } else {
+                                        errorOfertas = "La solicitud se publicó, pero el servidor no devolvió su identificador."
+                                    }
                                 },
                                 onFailure = { error ->
                                     enviando = false
@@ -194,6 +234,67 @@ fun PassengerScreen(volver: () -> Unit) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(if (enviando) "Publicando..." else "Publicar solicitud")
+            }
+
+            if (requestId > 0) {
+                Spacer(Modifier.height(28.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(16.dp))
+                Text("Ofertas recibidas", style = MaterialTheme.typography.titleLarge)
+                Text("Solicitud #$requestId", style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(8.dp))
+
+                OutlinedButton(
+                    onClick = { cargarOfertas(requestId) },
+                    enabled = !cargandoOfertas,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (cargandoOfertas) "Consultando..." else "Actualizar ofertas")
+                }
+
+                if (errorOfertas.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(errorOfertas, color = MaterialTheme.colorScheme.error)
+                } else if (cargandoOfertas) {
+                    Spacer(Modifier.height(8.dp))
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                } else if (ofertas.isEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text("Todavía no hay ofertas. Puedes actualizar esta sección más tarde.")
+                } else {
+                    Spacer(Modifier.height(8.dp))
+                    Text("Total: ${ofertas.size}", style = MaterialTheme.typography.bodyMedium)
+                    ofertas.forEach { oferta ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    oferta.optString("driver_name", "Conductor"),
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Text(
+                                    "${oferta.optInt("price_per_passenger_kzt")} ₸ por pasajero",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                val offerMessage = oferta.optString("message")
+                                if (offerMessage.isNotBlank() && offerMessage != "null") {
+                                    Text(offerMessage)
+                                }
+                                val status = when (oferta.optString("status")) {
+                                    "accepted" -> "Aceptada"
+                                    "rejected" -> "No seleccionada"
+                                    else -> "Pendiente"
+                                }
+                                Text("Estado: $status", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
