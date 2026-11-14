@@ -132,7 +132,7 @@ object PassengerApiRepository {
                     requestMethod = "POST"
                     connectTimeout = 15000
                     readTimeout = 15000
-                    setRequestProperty("Authorization", "Bearer $"+"token")
+                    setRequestProperty("Authorization", "Bearer $token")
                     setRequestProperty("Accept", "application/json")
                 }
                 val code = connection.responseCode
@@ -147,7 +147,7 @@ object PassengerApiRepository {
                     val message = when (detail) {
                         is String -> detail
                         is org.json.JSONArray -> detail.toString()
-                        else -> "No se pudo aceptar la oferta (HTTP $"+"code)"
+                        else -> "No se pudo aceptar la oferta (HTTP $code)"
                     }
                     Handler(context.mainLooper).post { onFailure(message) }
                 }
@@ -177,7 +177,7 @@ object PassengerApiRepository {
                     requestMethod = "GET"
                     connectTimeout = 15000
                     readTimeout = 15000
-                    setRequestProperty("Authorization", "Bearer $"+"token")
+                    setRequestProperty("Authorization", "Bearer $token")
                     setRequestProperty("Accept", "application/json")
                 }
                 val code = connection.responseCode
@@ -191,7 +191,7 @@ object PassengerApiRepository {
                     if (code == 401 || code == 403) AuthRepository.clearSession(context)
                     val detail = response.optString("detail")
                     Handler(context.mainLooper).post {
-                        onFailure(detail.ifBlank { "No se pudieron cargar los mensajes (HTTP $"+"code)" })
+                        onFailure(detail.ifBlank { "No se pudieron cargar los mensajes (HTTP $code)" })
                     }
                 }
             } catch (e: Exception) {
@@ -220,7 +220,7 @@ object PassengerApiRepository {
                     connectTimeout = 15000
                     readTimeout = 15000
                     doOutput = true
-                    setRequestProperty("Authorization", "Bearer $"+"token")
+                    setRequestProperty("Authorization", "Bearer $token")
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
                     setRequestProperty("Accept", "application/json")
                 }
@@ -237,7 +237,7 @@ object PassengerApiRepository {
                     if (code == 401 || code == 403) AuthRepository.clearSession(context)
                     val detail = response.optString("detail")
                     Handler(context.mainLooper).post {
-                        onFailure(detail.ifBlank { "No se pudo enviar el mensaje (HTTP $"+"code)" })
+                        onFailure(detail.ifBlank { "No se pudo enviar el mensaje (HTTP $code)" })
                     }
                 }
             } catch (e: Exception) {
