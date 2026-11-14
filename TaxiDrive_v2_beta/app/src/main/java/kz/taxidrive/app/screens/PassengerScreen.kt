@@ -32,6 +32,8 @@ fun PassengerScreen(volver: () -> Unit) {
     var ofertas by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var cargandoOfertas by remember { mutableStateOf(false) }
     var errorOfertas by remember { mutableStateOf("") }
+    var acceptingOfferId by remember { mutableIntStateOf(0) }
+    var mensajeAceptacion by remember { mutableStateOf("") }
 
     val cargarOfertas: (Int) -> Unit = { id ->
         if (!cargandoOfertas && id > 0) {
@@ -264,6 +266,16 @@ fun PassengerScreen(volver: () -> Unit) {
                 } else {
                     Spacer(Modifier.height(8.dp))
                     Text("Total: ${ofertas.size}", style = MaterialTheme.typography.bodyMedium)
+                if (mensajeAceptacion.isNotBlank()) {
+                    Text(
+                        mensajeAceptacion,
+                        color = if (mensajeAceptacion == "Oferta aceptada correctamente.") {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        }
+                    )
+                }
                     ofertas.forEach { oferta ->
                         Card(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
@@ -291,6 +303,42 @@ fun PassengerScreen(volver: () -> Unit) {
                                     else -> "Pendiente"
                                 }
                                 Text("Estado: $status", style = MaterialTheme.typography.bodySmall)
+
+                                if (oferta.optString("status") == "pending") {
+                                    Spacer(Modifier.height(8.dp))
+                                    Button(
+                                        onClick = {
+                                            val offerId = oferta.optInt("id", 0)
+                                            if (offerId > 0 && acceptingOfferId == 0) {
+                                                acceptingOfferId = offerId
+                                                mensajeAceptacion = ""
+                                                PassengerApiRepository.acceptOffer(
+                                                    context = context,
+                                                    offerId = offerId,
+                                                    onSuccess = {
+                                                        acceptingOfferId = 0
+                                                        mensajeAceptacion = "Oferta aceptada correctamente."
+                                                        cargarOfertas(requestId)
+                                                    },
+                                                    onFailure = { error ->
+                                                        acceptingOfferId = 0
+                                                        mensajeAceptacion = error
+                                                    }
+                                                )
+                                            }
+                                        },
+                                        enabled = acceptingOfferId == 0,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            if (acceptingOfferId == oferta.optInt("id")) {
+                                                "Aceptando..."
+                                            } else {
+                                                "Aceptar oferta"
+                                            }
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
