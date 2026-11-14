@@ -11,68 +11,25 @@ import kz.taxidrive.app.screens.PassengerScreen
 import kz.taxidrive.app.screens.RegisterScreen
 
 @Composable
-fun NavGraph(
-    navController: NavHostController
-) {
-
-    NavHost(
-        navController = navController,
-        startDestination = Routes.LOGIN
-    ) {
-
+fun NavGraph(navController: NavHostController) {
+    NavHost(navController = navController, startDestination = Routes.LOGIN) {
         composable(Routes.LOGIN) {
-
             LoginScreen(
-                abrirRegistro = {
-                    navController.navigate(Routes.REGISTER)
-                },
-                loginCorrecto = {
-                    navController.navigate(Routes.HOME)
-                }
+                abrirRegistro = { navController.navigate(Routes.REGISTER) },
+                loginCorrecto = { _, _ -> navController.navigate(Routes.HOME) }
             )
-
         }
-
         composable(Routes.REGISTER) {
-
-            RegisterScreen(
-                volverLogin = {
-                    navController.popBackStack()
-                }
-            )
-
+            RegisterScreen(volverLogin = { navController.popBackStack() })
         }
-
         composable(Routes.PASSENGER) {
-
-            PassengerScreen(
-                volver = {
-                    navController.popBackStack()
-                }
-            )
-
+            PassengerScreen(volver = { navController.popBackStack() })
         }
-
         composable(Routes.DRIVER) {
-
-            DriverScreen(
-                volver = {
-                    navController.popBackStack()
-                }
-            )
-
+            DriverScreen(volver = { navController.popBackStack() })
         }
-
         composable(Routes.ADMIN) {
-
-            AdminScreen(
-                volver = {
-                    navController.popBackStack()
-                }
-            )
-
+            AdminScreen(volver = { navController.popBackStack() })
         }
-
     }
-
 }
