@@ -11,37 +11,15 @@ object AuthRepository {
     private const val PREFS = "taxidrive_auth"
     private const val TOKEN_KEY = "access_token"
 
-    fun login(
-        context: Context,
-        phone: String,
-        password: String,
-        onSuccess: (JSONObject) -> Unit,
-        onError: (String) -> Unit
-    ) {
-        post(context, "/auth/login", JSONObject()
-            .put("phone", phone.trim())
-            .put("password", password), onSuccess, onError)
+    fun login(context: Context, phone: String, password: String, onSuccess: (JSONObject) -> Unit, onError: (String) -> Unit) {
+        post(context, "/auth/login", JSONObject().put("phone", phone.trim()).put("password", password), onSuccess, onError)
     }
 
-    fun register(
-        context: Context,
-        phone: String,
-        fullName: String,
-        password: String,
-        role: String,
-        privacyAccepted: Boolean,
-        driverDeclarationAccepted: Boolean,
-        onSuccess: (JSONObject) -> Unit,
-        onError: (String) -> Unit
-    ) {
+    fun register(context: Context, phone: String, fullName: String, password: String, role: String, privacyAccepted: Boolean, driverDeclarationAccepted: Boolean, onSuccess: (JSONObject) -> Unit, onError: (String) -> Unit) {
         post(context, "/auth/register", JSONObject()
-            .put("phone", phone.trim())
-            .put("full_name", fullName.trim())
-            .put("password", password)
-            .put("role", role)
-            .put("privacy_accepted", privacyAccepted)
-            .put("driver_declaration_accepted", driverDeclarationAccepted),
-            onSuccess, onError)
+            .put("phone", phone.trim()).put("full_name", fullName.trim()).put("password", password)
+            .put("role", role).put("privacy_accepted", privacyAccepted)
+            .put("driver_declaration_accepted", driverDeclarationAccepted), onSuccess, onError)
     }
 
     fun accessToken(context: Context): String? =
@@ -51,16 +29,11 @@ object AuthRepository {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(TOKEN_KEY).apply()
     }
 
-    fun getMe(
-        context: Context,
-        onSuccess: (JSONObject) -> Unit,
-        onError: (String) -> Unit
-    ) {
+    fun getMe(context: Context, onSuccess: (JSONObject) -> Unit, onError: (String) -> Unit) {
         Thread {
             var connection: HttpURLConnection? = null
             try {
-                val token = accessToken(context)
-                    ?: throw IllegalStateException("No hay una sesión activa")
+                val token = accessToken(context) ?: throw IllegalStateException("No hay una sesión activa")
                 connection = (URL(BASE_URL + "/auth/me").openConnection() as HttpURLConnection).apply {
                     requestMethod = "GET"
                     connectTimeout = 15000
@@ -90,14 +63,7 @@ object AuthRepository {
         }.start()
     }
 
-
-    fun uploadDriverDocument(
-        context: Context,
-        documentType: String,
-        uri: android.net.Uri,
-        onSuccess: (String) -> Unit,
-        onError: (String) -> Unit
-    ) {
+    fun uploadDriverDocument(context: Context, documentType: String, uri: android.net.Uri, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
         Thread {
             var connection: HttpURLConnection? = null
             try {
@@ -128,11 +94,11 @@ object AuthRepository {
                     setRequestProperty("Accept", "application/json")
                 }
                 connection.outputStream.use { output ->
-                    output.write("--$boundary\\r\\n".toByteArray(StandardCharsets.UTF_8))
-                    output.write("Content-Disposition: form-data; name=\\"file\\"; filename=\\"document.$extension\\"\\r\\n".toByteArray(StandardCharsets.UTF_8))
-                    output.write("Content-Type: $mime\\r\\n\\r\\n".toByteArray(StandardCharsets.UTF_8))
+                    output.write("--$boundary\r\n".toByteArray(StandardCharsets.UTF_8))
+                    output.write("Content-Disposition: form-data; name=\"file\"; filename=\"document.$extension\"\r\n".toByteArray(StandardCharsets.UTF_8))
+                    output.write("Content-Type: $mime\r\n\r\n".toByteArray(StandardCharsets.UTF_8))
                     output.write(bytes)
-                    output.write("\\r\\n--$boundary--\\r\\n".toByteArray(StandardCharsets.UTF_8))
+                    output.write("\r\n--$boundary--\r\n".toByteArray(StandardCharsets.UTF_8))
                 }
                 val code = connection.responseCode
                 val stream = if (code in 200..299) connection.inputStream else connection.errorStream
@@ -156,17 +122,7 @@ object AuthRepository {
         }.start()
     }
 
-    fun submitDriverProfile(
-        context: Context,
-        vehicleMake: String,
-        vehicleModel: String,
-        vehicleYear: Int,
-        licensePlate: String,
-        frontPhotoId: String,
-        steeringWheelPhotoId: String,
-        onSuccess: (JSONObject) -> Unit,
-        onError: (String) -> Unit
-    ) {
+    fun submitDriverProfile(context: Context, vehicleMake: String, vehicleModel: String, vehicleYear: Int, licensePlate: String, frontPhotoId: String, steeringWheelPhotoId: String, onSuccess: (JSONObject) -> Unit, onError: (String) -> Unit) {
         val body = JSONObject()
             .put("vehicle_make", vehicleMake.trim())
             .put("vehicle_model", vehicleModel.trim())
@@ -177,13 +133,7 @@ object AuthRepository {
         put(context, "/drivers/me", body, onSuccess, onError)
     }
 
-    private fun put(
-        context: Context,
-        path: String,
-        body: JSONObject,
-        onSuccess: (JSONObject) -> Unit,
-        onError: (String) -> Unit
-    ) {
+    private fun put(context: Context, path: String, body: JSONObject, onSuccess: (JSONObject) -> Unit, onError: (String) -> Unit) {
         Thread {
             var connection: HttpURLConnection? = null
             try {
@@ -197,9 +147,7 @@ object AuthRepository {
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
                     setRequestProperty("Accept", "application/json")
                 }
-                connection.outputStream.use {
-                    it.write(body.toString().toByteArray(StandardCharsets.UTF_8))
-                }
+                connection.outputStream.use { it.write(body.toString().toByteArray(StandardCharsets.UTF_8)) }
                 val code = connection.responseCode
                 val stream = if (code in 200..299) connection.inputStream else connection.errorStream
                 val responseText = stream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() }.orEmpty()
@@ -211,22 +159,14 @@ object AuthRepository {
                     android.os.Handler(context.mainLooper).post { onError(detail) }
                 }
             } catch (e: Exception) {
-                android.os.Handler(context.mainLooper).post {
-                    onError(e.message ?: "No se pudo conectar con TaxiDrive.")
-                }
+                android.os.Handler(context.mainLooper).post { onError(e.message ?: "No se pudo conectar con TaxiDrive.") }
             } finally {
                 connection?.disconnect()
             }
         }.start()
     }
 
-    private fun post(
-        context: Context,
-        path: String,
-        body: JSONObject,
-        onSuccess: (JSONObject) -> Unit,
-        onError: (String) -> Unit
-    ) {
+    private fun post(context: Context, path: String, body: JSONObject, onSuccess: (JSONObject) -> Unit, onError: (String) -> Unit) {
         Thread {
             var connection: HttpURLConnection? = null
             try {
@@ -238,9 +178,7 @@ object AuthRepository {
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
                     setRequestProperty("Accept", "application/json")
                 }
-                connection.outputStream.use {
-                    it.write(body.toString().toByteArray(StandardCharsets.UTF_8))
-                }
+                connection.outputStream.use { it.write(body.toString().toByteArray(StandardCharsets.UTF_8)) }
                 val code = connection.responseCode
                 val stream = if (code in 200..299) connection.inputStream else connection.errorStream
                 val responseText = stream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() }.orEmpty()
@@ -248,8 +186,7 @@ object AuthRepository {
                 if (code in 200..299) {
                     val token = response.optString("access_token")
                     if (token.isNotBlank()) {
-                        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                            .edit().putString(TOKEN_KEY, token).apply()
+                        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(TOKEN_KEY, token).apply()
                     }
                     android.os.Handler(context.mainLooper).post { onSuccess(response) }
                 } else {
