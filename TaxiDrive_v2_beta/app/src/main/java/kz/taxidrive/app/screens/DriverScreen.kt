@@ -81,6 +81,10 @@ fun DriverScreen(volver: () -> Unit, abrirChat: (Int) -> Unit, driverUid: String
             Button(onClick = volver, modifier = Modifier.fillMaxWidth()) { Text("← Volver") }
             Spacer(Modifier.height(12.dp))
             Text("Mis ofertas", style = MaterialTheme.typography.headlineSmall)
+            OutlinedButton(
+                onClick = { loadMyOffers() },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Actualizar mis ofertas") }
             val offers = myOffers ?: JSONArray()
             var acceptedCount = 0
             for (offerIndex in 0 until offers.length()) {
