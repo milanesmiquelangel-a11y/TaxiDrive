@@ -1,4 +1,5 @@
 package kz.taxidrive.app.screens
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -14,56 +15,151 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import kz.taxidrive.app.auth.AuthRepository
+import org.json.JSONObject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RegisterScreen(volverLogin: () -> Unit) {
+fun RegisterScreen(
+    volverLogin: () -> Unit,
+    recoveryMode: Boolean = false,
+    existingProfile: JSONObject? = null
+) {
     val context = LocalContext.current
-    var tipo by remember { mutableStateOf("pasajero") }
-    var nombre by remember { mutableStateOf("") }; var apellidos by remember { mutableStateOf("") }
-    var telefono by remember { mutableStateOf("") }; var contrasena by remember { mutableStateOf("") }
-    var marca by remember { mutableStateOf("") }; var modelo by remember { mutableStateOf("") }
-    var color by remember { mutableStateOf("") }; var anio by remember { mutableStateOf("") }
-    var matricula by remember { mutableStateOf("") }; var licencia by remember { mutableStateOf("") }
+    var tipo by remember { mutableStateOf(if (recoveryMode) "conductor" else "pasajero") }
+    var accountCreated by remember { mutableStateOf(recoveryMode) }
+    val completingProfile = recoveryMode || accountCreated
+
+    var nombre by remember { mutableStateOf("") }
+    var apellidos by remember { mutableStateOf("") }
+    var telefono by remember { mutableStateOf("") }
+    var contrasena by remember { mutableStateOf("") }
+    var marca by remember(existingProfile) { mutableStateOf(existingProfile?.optString("vehicle_make").orEmpty().takeUnless { it == "null" }.orEmpty()) }
+    var modelo by remember(existingProfile) { mutableStateOf(existingProfile?.optString("vehicle_model").orEmpty().takeUnless { it == "null" }.orEmpty()) }
+    var color by remember { mutableStateOf("") }
+    var anio by remember(existingProfile) { mutableStateOf(existingProfile?.optString("vehicle_year").orEmpty().takeUnless { it == "null" }.orEmpty()) }
+    var matricula by remember(existingProfile) { mutableStateOf(existingProfile?.optString("license_plate").orEmpty().takeUnless { it == "null" }.orEmpty()) }
+    var licencia by remember { mutableStateOf("") }
     var privacidadAceptada by remember { mutableStateOf(false) }
     var declaracionConductorAceptada by remember { mutableStateOf(false) }
-    var mensaje by remember { mutableStateOf("") }; var cargando by remember { mutableStateOf(false) }
+    var mensaje by remember { mutableStateOf("") }
+    var cargando by remember { mutableStateOf(false) }
     var fotoFrontal by remember { mutableStateOf<android.net.Uri?>(null) }
     var fotoVolante by remember { mutableStateOf<android.net.Uri?>(null) }
+    var frontDocumentId by remember(existingProfile) { mutableStateOf(existingProfile?.optString("front_photo_url").orEmpty().takeUnless { it == "null" }.orEmpty()) }
+    var steeringWheelDocumentId by remember(existingProfile) { mutableStateOf(existingProfile?.optString("steering_wheel_photo_url").orEmpty().takeUnless { it == "null" }.orEmpty()) }
+
     val elegirFotoFrontal = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { fotoFrontal = it }
     val elegirFotoVolante = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { fotoVolante = it }
     val telefonoCompleto = "+7$telefono"
-    Scaffold(topBar = { TopAppBar(title = { Text("Crear cuenta") }) }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(20.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Tipo de usuario")
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                RadioButton(tipo == "pasajero", { tipo = "pasajero" }); Text("Pasajero")
-                Spacer(Modifier.width(20.dp))
-                RadioButton(tipo == "conductor", { tipo = "conductor" }); Text("Conductor")
+
+    fun guardarPerfil(frontId: String, wheelId: String, volverTrasGuardar: Boolean) {
+        AuthRepository.submitDriverProfile(
+            context, marca, modelo, anio.toInt(), matricula, frontId, wheelId,
+            {
+                cargando = false
+                mensaje = "Perfil enviado correctamente. Queda pendiente de aprobación administrativa."
+                if (volverTrasGuardar) volverLogin()
+            },
+            { error ->
+                cargando = false
+                mensaje = "Los documentos se conservaron, pero no se pudo guardar el perfil: $error"
             }
-            Spacer(Modifier.height(20.dp))
-            @Composable fun field(value: String, label: String, set: (String) -> Unit) {
+        )
+    }
+
+    fun subirDocumentosYGuardar(volverTrasGuardar: Boolean) {
+        fun subirVolante(frontId: String) {
+            val selectedWheel = fotoVolante
+            if (selectedWheel == null) {
+                if (steeringWheelDocumentId.isBlank()) {
+                    cargando = false
+                    mensaje = "Añada la foto del volante para completar el perfil."
+                } else {
+                    guardarPerfil(frontId, steeringWheelDocumentId, volverTrasGuardar)
+                }
+            } else {
+                AuthRepository.uploadDriverDocument(context, "steering_wheel", selectedWheel, { wheelId ->
+                    steeringWheelDocumentId = wheelId
+                    fotoVolante = null
+                    guardarPerfil(frontId, wheelId, volverTrasGuardar)
+                }, { error ->
+                    cargando = false
+                    mensaje = "No se pudo subir la foto del volante: $error"
+                })
+            }
+        }
+
+        val selectedFront = fotoFrontal
+        if (selectedFront == null) {
+            if (frontDocumentId.isBlank()) {
+                cargando = false
+                mensaje = "Añada la foto frontal del vehículo para completar el perfil."
+            } else {
+                subirVolante(frontDocumentId)
+            }
+        } else {
+            AuthRepository.uploadDriverDocument(context, "front", selectedFront, { frontId ->
+                frontDocumentId = frontId
+                fotoFrontal = null
+                subirVolante(frontId)
+            }, { error ->
+                cargando = false
+                mensaje = "No se pudo subir la foto frontal: $error"
+            })
+        }
+    }
+
+    Scaffold(topBar = { TopAppBar(title = { Text(if (completingProfile) "Completar perfil de conductor" else "Crear cuenta") }) }) { padding ->
+        Column(
+            Modifier.fillMaxSize().padding(padding).padding(20.dp).verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (!completingProfile) {
+                Text("Tipo de usuario")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(tipo == "pasajero", { tipo = "pasajero" }); Text("Pasajero")
+                    Spacer(Modifier.width(20.dp))
+                    RadioButton(tipo == "conductor", { tipo = "conductor" }); Text("Conductor")
+                }
+                Spacer(Modifier.height(20.dp))
+            }
+
+            @Composable
+            fun field(value: String, label: String, set: (String) -> Unit) {
                 OutlinedTextField(value, set, label = { Text(label) }, modifier = Modifier.fillMaxWidth(), enabled = !cargando)
                 Spacer(Modifier.height(12.dp))
             }
-            field(nombre, "Nombre") { nombre = it }
-            field(apellidos, "Apellidos") { apellidos = it }
-            OutlinedTextField(
-                value = telefono,
-                onValueChange = { telefono = it.filter(Char::isDigit).take(10) },
-                label = { Text("Teléfono") },
-                prefix = { Text("+7") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !cargando
-            )
-            Spacer(Modifier.height(12.dp))
-            OutlinedTextField(contrasena, { contrasena = it }, label = { Text("Contraseña (mínimo 10 caracteres)") }, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), enabled = !cargando)
-            Spacer(Modifier.height(12.dp))
+
+            if (!completingProfile) {
+                field(nombre, "Nombre") { nombre = it }
+                field(apellidos, "Apellidos") { apellidos = it }
+                OutlinedTextField(
+                    value = telefono,
+                    onValueChange = { telefono = it.filter(Char::isDigit).take(10) },
+                    label = { Text("Teléfono") },
+                    prefix = { Text("+7") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !cargando
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    contrasena, { contrasena = it },
+                    label = { Text("Contraseña (mínimo 10 caracteres)") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !cargando
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+
             if (tipo == "conductor") {
-                Text("Datos del vehículo"); Spacer(Modifier.height(12.dp))
-                field(marca, "Marca") { marca = it }; field(modelo, "Modelo") { modelo = it }
-                field(color, "Color") { color = it }; field(anio, "Año") { anio = it }
+                Text("Datos del vehículo")
+                Spacer(Modifier.height(12.dp))
+                field(marca, "Marca") { marca = it }
+                field(modelo, "Modelo") { modelo = it }
+                if (!completingProfile) field(color, "Color") { color = it }
+                field(anio, "Año") { anio = it }
                 OutlinedTextField(
                     value = matricula,
                     onValueChange = { input ->
@@ -85,85 +181,118 @@ fun RegisterScreen(volverLogin: () -> Unit) {
                     enabled = !cargando
                 )
                 Spacer(Modifier.height(12.dp))
-                field(licencia, "Licencia") { licencia = it }
-                OutlinedButton(onClick = { elegirFotoFrontal.launch("image/*") }, modifier = Modifier.fillMaxWidth(), enabled = !cargando) {
-                    Text(if (fotoFrontal == null) "Añadir foto frontal del vehículo" else "Foto frontal seleccionada")
+                if (!completingProfile) field(licencia, "Licencia") { licencia = it }
+                OutlinedButton(
+                    onClick = { elegirFotoFrontal.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !cargando
+                ) {
+                    Text(
+                        when {
+                            fotoFrontal != null -> "Foto frontal seleccionada"
+                            frontDocumentId.isNotBlank() -> "Foto frontal guardada en el servidor"
+                            else -> "Añadir foto frontal del vehículo"
+                        }
+                    )
                 }
                 Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = { elegirFotoVolante.launch("image/*") }, modifier = Modifier.fillMaxWidth(), enabled = !cargando) {
-                    Text(if (fotoVolante == null) "Añadir foto del volante" else "Foto del volante seleccionada")
+                OutlinedButton(
+                    onClick = { elegirFotoVolante.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !cargando
+                ) {
+                    Text(
+                        when {
+                            fotoVolante != null -> "Foto del volante seleccionada"
+                            steeringWheelDocumentId.isNotBlank() -> "Foto del volante guardada en el servidor"
+                            else -> "Añadir foto del volante"
+                        }
+                    )
                 }
                 Text("JPG, PNG o WEBP; máximo 5 MB por imagen.", style = MaterialTheme.typography.bodySmall)
-                Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(declaracionConductorAceptada, { declaracionConductorAceptada = it }, enabled = !cargando)
-                    Text("Confirmo que tengo 18 años o más, licencia y seguro vigentes, y que mi vehículo está en condiciones adecuadas.")
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(privacidadAceptada, { privacidadAceptada = it }, enabled = !cargando)
-                Text("Acepto la Política de Privacidad de TaxiDrive.kz.")
-            }
-            if (mensaje.isNotEmpty()) Text(mensaje, color = MaterialTheme.colorScheme.error)
-            Spacer(Modifier.height(12.dp))
-            Button(onClick = {
-                when {
-                    nombre.isBlank() || apellidos.isBlank() -> mensaje = "Complete todos los campos obligatorios"
-                    telefono.length != 10 -> mensaje = "Introduzca los 10 dígitos del teléfono después de +7"
-                    contrasena.length < 10 -> mensaje = "La contraseña debe tener al menos 10 caracteres"
-                    tipo == "conductor" && (marca.isBlank() || modelo.isBlank()) -> mensaje = "Complete la marca y el modelo del vehículo"
-                    tipo == "conductor" && anio.toIntOrNull()?.let { it !in 1980..2100 } != false -> mensaje = "Introduzca un año válido entre 1980 y 2100"
-                    tipo == "conductor" && !matricula.matches(Regex("[0-9]{3}[A-Z]{3}[0-9]{2}")) -> mensaje = "La matrícula debe tener el formato 123ABC45"
-                    tipo == "conductor" && fotoFrontal == null -> mensaje = "Añada la foto frontal del vehículo"
-                    tipo == "conductor" && fotoVolante == null -> mensaje = "Añada la foto del volante"
-                    !privacidadAceptada -> mensaje = "Debe aceptar la Política de Privacidad"
-                    tipo == "conductor" && !declaracionConductorAceptada -> mensaje = "Debe aceptar la declaración del conductor"
-                    else -> {
-                        cargando = true; mensaje = ""
-                        AuthRepository.register(context, telefonoCompleto, "$nombre $apellidos", contrasena,
-                            if (tipo == "conductor") "driver" else "passenger", privacidadAceptada,
-                            declaracionConductorAceptada, {
-                                if (tipo == "pasajero") {
-                                    cargando = false
-                                    mensaje = "Cuenta creada correctamente. Ya puede iniciar sesión."
-                                    volverLogin()
-                                } else {
-                                    val frontal = fotoFrontal
-                                    val volante = fotoVolante
-                                    if (frontal == null || volante == null) {
-                                        cargando = false
-                                        mensaje = "La cuenta se creó, pero faltan las fotografías. Inicie sesión para continuar con el envío."
-                                    } else {
-                                        AuthRepository.uploadDriverDocument(context, "front", frontal, { frontId ->
-                                            AuthRepository.uploadDriverDocument(context, "steering_wheel", volante, { wheelId ->
-                                                AuthRepository.submitDriverProfile(
-                                                    context, marca, modelo, anio.toInt(), matricula, frontId, wheelId,
-                                                    {
-                                                        cargando = false
-                                                        mensaje = "Cuenta y solicitud de conductor enviadas. Queda pendiente la aprobación del administrador."
-                                                        volverLogin()
-                                                    },
-                                                    { error ->
-                                                        cargando = false
-                                                        mensaje = "La cuenta se creó, pero no se pudo guardar el perfil del vehículo: $error"
-                                                    }
-                                                )
-                                            }, { error ->
-                                                cargando = false
-                                                mensaje = "La cuenta se creó, pero no se pudo subir la foto del volante: $error"
-                                            })
-                                        }, { error ->
-                                            cargando = false
-                                            mensaje = "La cuenta se creó, pero no se pudo subir la foto frontal: $error"
-                                        })
-                                    }
-                                }
-                            }, { error -> cargando = false; mensaje = error })
+                if (!completingProfile) {
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(declaracionConductorAceptada, { declaracionConductorAceptada = it }, enabled = !cargando)
+                        Text("Confirmo que tengo 18 años o más, licencia y seguro vigentes, y que mi vehículo está en condiciones adecuadas.")
                     }
                 }
-            }, modifier = Modifier.fillMaxWidth(), enabled = !cargando) { Text(if (cargando) "Registrando..." else "Crear cuenta") }
+            }
+
+            if (!completingProfile) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(privacidadAceptada, { privacidadAceptada = it }, enabled = !cargando)
+                    Text("Acepto la Política de Privacidad de TaxiDrive.kz.")
+                }
+            }
+
+            if (mensaje.isNotEmpty()) Text(mensaje, color = MaterialTheme.colorScheme.error)
             Spacer(Modifier.height(12.dp))
-            OutlinedButton(volverLogin, modifier = Modifier.fillMaxWidth(), enabled = !cargando) { Text("Volver al inicio de sesión") }
+            Button(
+                onClick = {
+                    if (completingProfile) {
+                        when {
+                            marca.isBlank() || modelo.isBlank() -> mensaje = "Complete la marca y el modelo del vehículo"
+                            anio.toIntOrNull()?.let { it !in 1980..2100 } != false -> mensaje = "Introduzca un año válido entre 1980 y 2100"
+                            !matricula.matches(Regex("[0-9]{3}[A-Z]{3}[0-9]{2}")) -> mensaje = "La matrícula debe tener el formato 123ABC45"
+                            frontDocumentId.isBlank() && fotoFrontal == null -> mensaje = "Añada la foto frontal del vehículo"
+                            steeringWheelDocumentId.isBlank() && fotoVolante == null -> mensaje = "Añada la foto del volante"
+                            else -> {
+                                cargando = true
+                                mensaje = ""
+                                subirDocumentosYGuardar(volverTrasGuardar = !recoveryMode)
+                            }
+                        }
+                    } else {
+                        when {
+                            nombre.isBlank() || apellidos.isBlank() -> mensaje = "Complete todos los campos obligatorios"
+                            telefono.length != 10 -> mensaje = "Introduzca los 10 dígitos del teléfono después de +7"
+                            contrasena.length < 10 -> mensaje = "La contraseña debe tener al menos 10 caracteres"
+                            tipo == "conductor" && (marca.isBlank() || modelo.isBlank()) -> mensaje = "Complete la marca y el modelo del vehículo"
+                            tipo == "conductor" && anio.toIntOrNull()?.let { it !in 1980..2100 } != false -> mensaje = "Introduzca un año válido entre 1980 y 2100"
+                            tipo == "conductor" && !matricula.matches(Regex("[0-9]{3}[A-Z]{3}[0-9]{2}")) -> mensaje = "La matrícula debe tener el formato 123ABC45"
+                            tipo == "conductor" && fotoFrontal == null -> mensaje = "Añada la foto frontal del vehículo"
+                            tipo == "conductor" && fotoVolante == null -> mensaje = "Añada la foto del volante"
+                            !privacidadAceptada -> mensaje = "Debe aceptar la Política de Privacidad"
+                            tipo == "conductor" && !declaracionConductorAceptada -> mensaje = "Debe aceptar la declaración del conductor"
+                            else -> {
+                                cargando = true
+                                mensaje = ""
+                                AuthRepository.register(
+                                    context, telefonoCompleto, "$nombre $apellidos", contrasena,
+                                    if (tipo == "conductor") "driver" else "passenger",
+                                    privacidadAceptada, declaracionConductorAceptada,
+                                    {
+                                        if (tipo == "pasajero") {
+                                            cargando = false
+                                            mensaje = "Cuenta creada correctamente. Ya puede iniciar sesión."
+                                            volverLogin()
+                                        } else {
+                                            accountCreated = true
+                                            subirDocumentosYGuardar(volverTrasGuardar = true)
+                                        }
+                                    },
+                                    { error -> cargando = false; mensaje = error }
+                                )
+                            }
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !cargando
+            ) {
+                Text(
+                    when {
+                        cargando -> if (completingProfile) "Guardando perfil..." else "Registrando..."
+                        completingProfile -> "Guardar perfil"
+                        else -> "Crear cuenta"
+                    }
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(volverLogin, modifier = Modifier.fillMaxWidth(), enabled = !cargando) {
+                Text("Volver al inicio de sesión")
+            }
         }
     }
 }
