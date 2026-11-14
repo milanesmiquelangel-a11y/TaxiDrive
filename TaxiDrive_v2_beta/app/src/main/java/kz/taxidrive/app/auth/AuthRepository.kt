@@ -63,6 +63,39 @@ object AuthRepository {
         }.start()
     }
 
+    fun getDriverProfile(context: Context, onSuccess: (JSONObject) -> Unit, onError: (String) -> Unit) {
+        Thread {
+            var connection: HttpURLConnection? = null
+            try {
+                val token = accessToken(context) ?: throw IllegalStateException("No hay una sesión activa")
+                connection = (URL(BASE_URL + "/drivers/me").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 15000
+                    readTimeout = 15000
+                    setRequestProperty("Accept", "application/json")
+                    setRequestProperty("Authorization", "Bearer $token")
+                }
+                val code = connection.responseCode
+                val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+                val responseText = stream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() }.orEmpty()
+                val response = if (responseText.isNotBlank()) JSONObject(responseText) else JSONObject()
+                if (code in 200..299) {
+                    android.os.Handler(context.mainLooper).post { onSuccess(response) }
+                } else {
+                    if (code == 401 || code == 403) clearSession(context)
+                    val detail = response.optString("detail", "No se pudo consultar el perfil del conductor (HTTP $code)")
+                    android.os.Handler(context.mainLooper).post { onError(detail) }
+                }
+            } catch (e: Exception) {
+                android.os.Handler(context.mainLooper).post {
+                    onError(e.message ?: "No se pudo consultar el perfil del conductor.")
+                }
+            } finally {
+                connection?.disconnect()
+            }
+        }.start()
+    }
+
     fun uploadDriverDocument(context: Context, documentType: String, uri: android.net.Uri, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
         Thread {
             var connection: HttpURLConnection? = null
