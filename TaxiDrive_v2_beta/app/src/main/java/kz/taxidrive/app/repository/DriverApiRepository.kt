@@ -27,6 +27,12 @@ object DriverApiRepository {
         onFailure: (String) -> Unit
     ) = request(context, "GET", "/requests", null, onSuccess, onFailure)
 
+    fun getMyOffers(
+        context: Context,
+        onSuccess: (JSONObject) -> Unit,
+        onFailure: (String) -> Unit
+    ) = request(context, "GET", "/drivers/me/offers", null, onSuccess, onFailure)
+
     fun createOffer(
         context: Context,
         requestId: Int,

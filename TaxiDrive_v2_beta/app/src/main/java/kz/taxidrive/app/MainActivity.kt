@@ -40,6 +40,7 @@ fun TaxiDriveApp() {
     var perfilRecuperacion by remember { mutableStateOf<org.json.JSONObject?>(null) }
     var mensajeEstado by remember { mutableStateOf("") }
     var chatOfferId by remember { mutableIntStateOf(0) }
+    var chatReturnScreen by remember { mutableStateOf("pasajero") }
 
     // Each account stays in the role returned by the authenticated backend.
     // Leaving a role screen ends the session instead of exposing a role chooser.
@@ -129,17 +130,23 @@ fun TaxiDriveApp() {
             volver = cerrarSesion,
             abrirChat = { offerId ->
                 chatOfferId = offerId
+                chatReturnScreen = "pasajero"
                 pantalla = "chat_pasajero"
             }
         )
 
         "chat_pasajero" -> OfferChatScreen(
             offerId = chatOfferId,
-            volver = { pantalla = "pasajero" }
+            volver = { pantalla = chatReturnScreen }
         )
 
         "conductor" -> DriverScreen(
             volver = cerrarSesion,
+            abrirChat = { offerId ->
+                chatOfferId = offerId
+                chatReturnScreen = "conductor"
+                pantalla = "chat_pasajero"
+            },
             driverUid = telefonoActual
         )
 

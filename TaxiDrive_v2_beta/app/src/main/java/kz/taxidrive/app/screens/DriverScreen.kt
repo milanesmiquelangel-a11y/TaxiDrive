@@ -14,10 +14,11 @@ import org.json.JSONObject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DriverScreen(volver: () -> Unit, driverUid: String = "") {
+fun DriverScreen(volver: () -> Unit, abrirChat: (Int) -> Unit, driverUid: String = "") {
     val context = LocalContext.current
     var activation by remember { mutableStateOf<JSONObject?>(null) }
     var requests by remember { mutableStateOf<JSONArray?>(null) }
+    var myOffers by remember { mutableStateOf<JSONArray?>(null) }
     var loading by remember { mutableStateOf(true) }
     var refreshing by remember { mutableStateOf(false) }
     var mensaje by remember { mutableStateOf("") }
@@ -54,7 +55,18 @@ fun DriverScreen(volver: () -> Unit, driverUid: String = "") {
         })
     }
 
-    LaunchedEffect(Unit) { loadDriverData() }
+    fun loadMyOffers() {
+        DriverApiRepository.getMyOffers(context, { response ->
+            myOffers = response.optJSONArray("items") ?: JSONArray()
+        }, { error ->
+            mensaje = error
+        })
+    }
+
+    LaunchedEffect(Unit) {
+        loadDriverData()
+        loadMyOffers()
+    }
 
     val approved = activation?.optBoolean("approved") == true
     val canPublish = activation?.optBoolean("can_publish_offers") == true
@@ -67,7 +79,35 @@ fun DriverScreen(volver: () -> Unit, driverUid: String = "") {
                 .verticalScroll(rememberScrollState())
         ) {
             Button(onClick = volver, modifier = Modifier.fillMaxWidth()) { Text("← Volver") }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(12.dp))
+            Text("Mis ofertas", style = MaterialTheme.typography.headlineSmall)
+            val offers = myOffers ?: JSONArray()
+            var acceptedCount = 0
+            for (offerIndex in 0 until offers.length()) {
+                val offer = offers.optJSONObject(offerIndex) ?: continue
+                if (offer.optString("status") != "accepted") continue
+                val acceptedOfferId = offer.optInt("id")
+                if (acceptedOfferId <= 0) continue
+                acceptedCount++
+                Spacer(Modifier.height(8.dp))
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(
+                            offer.optString("origin_text") + " → " + offer.optString("destination_text"),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text("Precio por pasajero: " + offer.optInt("price_per_passenger_kzt") + " ₸")
+                        Button(
+                            onClick = { abrirChat(acceptedOfferId) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Abrir chat") }
+                    }
+                }
+            }
+            if (myOffers != null && acceptedCount == 0) {
+                Text("Todavía no tienes ofertas aceptadas con chat disponible.")
+            }
+            Spacer(Modifier.height(16.dp))
 
             when {
                 loading -> {
@@ -97,7 +137,10 @@ fun DriverScreen(volver: () -> Unit, driverUid: String = "") {
                     Text("Propón tu precio por pasajero para la solicitud que quieras aceptar.")
                     Spacer(Modifier.height(12.dp))
                     Button(
-                        onClick = { loadDriverData(isRefresh = true) },
+                        onClick = {
+                            loadDriverData(isRefresh = true)
+                            loadMyOffers()
+                        },
                         enabled = !refreshing,
                         modifier = Modifier.fillMaxWidth()
                     ) { Text(if (refreshing) "Actualizando..." else "Actualizar solicitudes") }
