@@ -46,9 +46,14 @@ fun TaxiDriveApp() {
             abrirRegistro = {
                 pantalla = "registro"
             },
-            loginCorrecto = { telefono ->
+            loginCorrecto = { telefono, role ->
                 telefonoActual = telefono
-                pantalla = "inicio"
+                pantalla = when (role) {
+                    "passenger" -> "pasajero"
+                    "driver" -> "conductor"
+                    "admin" -> "admin"
+                    else -> "login"
+                }
             }
         )
 
