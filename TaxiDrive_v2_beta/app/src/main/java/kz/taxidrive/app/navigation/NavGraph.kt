@@ -34,7 +34,10 @@ fun NavGraph(navController: NavHostController) {
             OfferChatScreen(offerId = offerId, volver = { navController.popBackStack() })
         }
         composable(Routes.DRIVER) {
-            DriverScreen(volver = { navController.popBackStack() })
+            DriverScreen(
+                volver = { navController.popBackStack() },
+                abrirChat = { offerId -> navController.navigate("offer_chat/$offerId") }
+            )
         }
         composable(Routes.ADMIN) {
             AdminScreen(volver = { navController.popBackStack() })
