@@ -1,0 +1,46 @@
+name: Android build validation
+
+on:
+  push:
+    branches:
+      - ci/android-build-validation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Compile Kotlin
+        working-directory: TaxiDrive_v2_beta
+        run: ./gradlew :app:compileDebugKotlin --no-daemon
+
+      - name: Assemble debug APK
+        working-directory: TaxiDrive_v2_beta
+        run: ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: taxidrive-debug-apk
+          path: TaxiDrive_v2_beta/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
