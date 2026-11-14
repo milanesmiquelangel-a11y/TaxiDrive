@@ -15,6 +15,7 @@ import kz.taxidrive.app.screens.AdminScreen
 import kz.taxidrive.app.screens.DriverScreen
 import kz.taxidrive.app.screens.LoginScreen
 import kz.taxidrive.app.screens.PassengerScreen
+import kz.taxidrive.app.screens.OfferChatScreen
 import kz.taxidrive.app.screens.RegisterScreen
 import kz.taxidrive.app.auth.AuthRepository
 import kz.taxidrive.app.ui.theme.TaxiDriveTheme
@@ -38,6 +39,7 @@ fun TaxiDriveApp() {
     var telefonoActual by remember { mutableStateOf("") }
     var perfilRecuperacion by remember { mutableStateOf<org.json.JSONObject?>(null) }
     var mensajeEstado by remember { mutableStateOf("") }
+    var chatOfferId by remember { mutableIntStateOf(0) }
 
     // Each account stays in the role returned by the authenticated backend.
     // Leaving a role screen ends the session instead of exposing a role chooser.
@@ -124,7 +126,16 @@ fun TaxiDriveApp() {
         }
 
         "pasajero" -> PassengerScreen(
-            volver = cerrarSesion
+            volver = cerrarSesion,
+            abrirChat = { offerId ->
+                chatOfferId = offerId
+                pantalla = "chat_pasajero"
+            }
+        )
+
+        "chat_pasajero" -> OfferChatScreen(
+            offerId = chatOfferId,
+            volver = { pantalla = "pasajero" }
         )
 
         "conductor" -> DriverScreen(
