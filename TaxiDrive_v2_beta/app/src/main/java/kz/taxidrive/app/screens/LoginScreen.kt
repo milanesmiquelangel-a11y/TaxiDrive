@@ -12,7 +12,7 @@ import kz.taxidrive.app.auth.AuthRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginScreen(abrirRegistro: () -> Unit, loginCorrecto: (String) -> Unit) {
+fun LoginScreen(abrirRegistro: () -> Unit, loginCorrecto: (String, String) -> Unit) {
     val context = LocalContext.current
     var telefono by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
@@ -38,7 +38,20 @@ fun LoginScreen(abrirRegistro: () -> Unit, loginCorrecto: (String) -> Unit) {
                 else {
                     cargando = true; mensaje = ""
                     AuthRepository.login(context, telefonoCompleto, contrasena, {
-                        cargando = false; loginCorrecto(telefonoCompleto)
+                        AuthRepository.getMe(context, { perfil ->
+                            cargando = false
+                            val role = perfil.optString("role").lowercase()
+                            if (role in setOf("passenger", "driver", "admin")) {
+                                loginCorrecto(telefonoCompleto, role)
+                            } else {
+                                AuthRepository.clearSession(context)
+                                mensaje = "El servidor devolvió un rol no reconocido. Contacte con soporte."
+                            }
+                        }, { error ->
+                            cargando = false
+                            AuthRepository.clearSession(context)
+                            mensaje = error
+                        })
                     }, { error -> cargando = false; mensaje = error })
                 }
             }, modifier = Modifier.fillMaxWidth(), enabled = !cargando) { Text(if (cargando) "Conectando..." else "Entrar") }
